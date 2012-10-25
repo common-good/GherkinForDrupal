@@ -22,6 +22,9 @@ Scenario: [Short name of scenario]
 All the "additional" lines can be multiple or omitted.
 Comment lines (beginning with '#') can appear anywhere.
 This Gherkin compiler makes several extensions to the standard Gherkin language:
+ * You can include a "Variants" section after the Feature header, consisting of a single multi-line argument
+   whose first line is a list of values to be replaced and each subsequent line is a list of replacements.
+   The whole series of tests will be run as-is, then with each list of replacements.
  * You can include a special first scenario headed "Setup:" instead of "Scenario:" that will be run
    at the start of each scenario to set things up. Typically this will include "Given" (and "And" or "When") statements,
    but you can also include "Then"s (and "And"s) to test the setup.
@@ -37,6 +40,7 @@ This Gherkin compiler makes several extensions to the standard Gherkin language:
 	   %today-15w - 15 weeks ago
 	   %today-15m - 15 months ago
 	   %today+15d - 15 days from now (not implemented)
+	   %picture1 - a random picture (will be saved in path $picturePath, so be sure to create that global)
 	   %CONSTANT_NAME - any defined constant (document any use of these, in the feature header, unless they self-explain)
     To adjust the magic constants $subs array, create a file in your program directory called "usualSubs.inc".
 	For example, after the <?php tag, your usualSubs.inc file could say: 

@@ -6,14 +6,13 @@ error_reporting($SHOWERRORS ? E_ALL : 0); ini_set('display_errors', $SHOWERRORS)
 //
 // Create a skeleton test for each feature in a module
 
-// activate just the first scenario for each feature, to save time testing
-// When ready, textedit replace "function notest" with "function test" in the .test file
-$first_scenario_only = FALSE;
+include __DIR__ . '/test-defs.php';
 
-$path = '../' . $_SERVER['QUERY_STRING']; // relative path from compiler to module directory
+$path = '../' . $_GET['module']; // relative path from compiler to module directory
 $GHERKIN_PATH = str_repeat('../', substr_count($path, '/') + 1) . basename(dirname($_SERVER['PHP_SELF']));
 $gEOL = '\\\\'; // end of line marker
 $arg_patterns = '"(.*?)"|([\-\+]?[0-9]+(?:[\.\,\-][0-9]+)*)|(%[a-z][A-Za-z0-9]+)'; // what forms the step arguments can take
+$lead = '  '; // line leader (indentation for everything in class definition
 
 $flnms = glob("$path/features");
 if (empty($flnms)) error('No features found. The gherkin directory should have the same parent as the module directory.');
@@ -60,7 +59,7 @@ $steps_text = file_exists($steps_filename) ? file_get_contents($steps_filename) 
  *   'callers' array is the list of tests that use this specific step function
  *   'arg_count' is the number of arguments (for new steps only)
  */
-$steps = get_steps($steps_text);
+$steps = get_steps($steps_text); // global
 
 $features = findFiles("$path/features", '/\.feature$/', FALSE);
 
@@ -98,6 +97,13 @@ file_put_contents($steps_filename, $steps_text);
 if ($info) file_put_contents($info_filename, $info);
 
 echo "<br>Updated $steps_filename<br>Done. " . date('g:ia');
+$caller = @$_SERVER['HTTP_REFERER'];
+if (@$_GET['return'] and $caller) echo <<<EOF
+  <script>
+    alert('Press Enter to return to program');
+    document.location.href='$caller';
+  </script>
+EOF;
 
 // END of program
 
@@ -120,8 +126,9 @@ echo "<br>Updated $steps_filename<br>Done. " . date('g:ia');
  *   FEATURE_HEADER: standard Gherkin feature header, formatted as a comment
  *   TESTS: all the tests and steps
  */
-function do_feature($feature_filename, &$steps) {
-  global $first_scenario_only, $arg_patterns, $FEATURE_NAME, $GHERKIN_PATH;
+function do_feature($feature_filename) {
+  global $first_scenario_only, $arg_patterns, $FEATURE_NAME, $FEATURE_LONGNAME, $GHERKIN_PATH;
+  global $steps, $lead;     
   $GROUP = basename(dirname(dirname($feature_filename)));
   $FEATURE_NAME = str_replace('.feature', '', basename($feature_filename));
   $FEATURE_LONGNAME = $FEATURE_NAME; // default English description of feature, in case it's missing from feature file
@@ -130,9 +137,10 @@ function do_feature($feature_filename, &$steps) {
   $SETUP_LINES = '';
  
   $lines = explode("\n", file_get_contents($feature_filename));
-  $state = '';
-  $lead = '  '; // line leader (indentation for everything in class definition
-  $no_scenario_yet = TRUE;
+
+  // Parse into sections and scenarios
+  $section_headers = explode(' ', 'Feature Variants Setup Scenario');
+  $sections = $scenarios = array();
 
   while (!is_null($line = array_shift($lines))) {
     $line = trim($line);
@@ -141,58 +149,44 @@ function do_feature($feature_filename, &$steps) {
     $word1 = $word1_original = $any ? $matches[1] : '';
     $tail = trim(substr($line, strlen($word1) + 1));
 
-    if ($word1 == 'Feature') {
-      $FEATURE_HEADER .= "//\n// $line\n";
-      $FEATURE_LONGNAME = $tail;
-      $no_scenario_yet = TRUE;
-      
-    } elseif ($word1 == 'Setup') {
-      expect($state == 'Feature', 'Setup section must follow the Feature header.');
-      $SETUP_LINES = "\n$lead  sceneSetup(\$this, __FUNCTION__);\n";
-      $test_function = 'featureSetup';
-      
-    } elseif ($word1 == 'Scenario') {
-      $test_function = 'test' . (preg_replace("/[^A-Z]/i", '', ucwords($tail)));
-      if ($first_scenario_only and !$no_scenario_yet) $test_function = 'no' . $test_function;
-
-      if (!$no_scenario_yet) $TESTS .= "$lead}\n"; // finish previous Scenario function
-      $TESTS .= "\n"
-        . "$lead// $line\n"
-        . "{$lead}public function $test_function() {\n"
-        . "$lead  sceneSetup(\$this, __FUNCTION__);\n";
-      $no_scenario_yet = FALSE;
-    
-    } elseif (in_array($word1, array('Given', 'When', 'Then', 'And'))) {
-      $is_then = ($word1 == 'Then' or ($word1 == 'And' and $state == 'Then'));
-      if ($word1 == 'And') $word1 = 'And__';
-      if ($word1 == 'When' or $word1 == 'Then') $word1 .= '_';
-      $multiline_arg = multiline_arg($lines);
-      $tail_escaped = str_replace("'", "\\'", $tail) . $multiline_arg;
-      $tail .= str_replace("\\'", "'", $multiline_arg);
-//      print_r(compact('multiline_arg','tail_escaped','tail'));
-      $phrase = "$lead  $word1('$tail_escaped');\n";
-      if ($no_scenario_yet) $SETUP_LINES .= $phrase; else $TESTS .= $phrase;
-
-      $english = preg_replace("/$arg_patterns/ms", '(ARG)', $tail);
-      $step_function = lcfirst(preg_replace("/$arg_patterns|[^A-Z]/msi", '', ucwords($tail)));
-
-      $test_function_qualified = "$FEATURE_NAME - $test_function";
-      $err_args = compact(ray('step_function,FEATURE_LONGNAME,line')); // for error reporting, just in case 
-      $steps[$step_function] = fix_step_function(@$steps[$step_function], $test_function, $test_function_qualified, $english, $is_then, $tail, $err_args);
-      
-    } else { // not a significant word
-      if ($state == 'Feature') {
-        $FEATURE_HEADER .= "//   $line\n";
-      } elseif ($state == 'Setup') {
-      } elseif ($state == 'Scenario') {
-        $TESTS .= "$lead *   $line\n";
+    if(in_array($word1, $section_headers)) {
+      $state = $word1;
+      switch ($word1) {
+        case 'Feature':
+          $FEATURE_HEADER .= "//\n// $line\n";
+          $FEATURE_LONGNAME = $tail;
+          break;
+        case 'Scenario': 
+          $test_function = 'test' . (preg_replace("/[^A-Z]/i", '', ucwords($tail))); 
+          $scenarios[$test_function] = array($line);
+          break;
+        case 'Setup': 
+          $SETUP_LINES = "\n$lead  sceneSetup(\$this, __FUNCTION__);\n";
+          break;
       }
-      $word1 = ''; // don't use this to set state
-    }
-    if ($word1 and $word1_original != 'And') $state = $word1_original;
+    } elseif ($state == 'Scenario') {
+      $scenarios[$test_function][] = $line;
+    } else $sections[$state][] = $line;
   }
 
-  if ($state != '' and !$no_scenario_yet) $TESTS .= "$lead}\n"; // close the final test function definition
+  // Parse each section
+  foreach ($sections['Feature'] as $line) $FEATURE_HEADER .= "//   $line\n";
+  $variants = parseMultilines(@$sections['Variants'] ?: array('|a|')); // if empty, return a single line that will get replaced with itself
+  $SETUP_LINES .= doScenario('featureSetup', $sections['Setup']);
+
+  for ($i = 0; $i < count($variants); $i++) {
+    foreach ($scenarios as $test_function => $lines) {
+      $test_functioni = $test_function . $i;
+      foreach ($lines as $key => $line) $lines[$key] = strtr($line, array_combine($variants[0], $variants[$i])); // adjust for current variant
+      $line = array_shift($lines); // get the original Scenario line back
+      $TESTS .= "\n"
+        . "$lead// $line\n"
+        . "{$lead}public function $test_functioni() {\n"
+        . "$lead  sceneSetup(\$this, __FUNCTION__);\n"
+        . doScenario($test_function, $lines)
+        . "$lead}\n"; // close the test function definition
+    }
+  }
 
   return compact(ray('GHERKIN_PATH,GROUP,FEATURE_NAME,FEATURE_LONGNAME,FEATURE_HEADER,SETUP_LINES,TESTS'));
 }
@@ -285,7 +279,7 @@ function replacement($callers, $TMB, $function_name) {
 function multiline_arg(&$lines) {
   global $gEOL;
   $result = '';
-  while (substr(trim($lines[0]), 0, 1) == '|') {
+  while (substr(trim(@$lines[0]), 0, 1) == '|') {
     $line = str_replace("'", "\\'", trim(array_shift($lines)));
     $result .= "'\n    . '$gEOL$line";
   }
@@ -342,4 +336,44 @@ function error($message, $subs = array()) {die(strtr2("\n\n$message.", $subs, '!
 function expect($bool, $message) {
   global $FEATURE_NAME;
   if(!$bool) error(@$FEATURE_NAME . ": $message");
+}
+
+function parseMultilines($lines) {
+  $result = array();
+  while (substr(trim(@$lines[0]), 0, 1) == '|') {
+    $line = squeeze(preg_replace('/ *\| */', '|', trim(array_shift($lines))), '|');
+    $result[] = explode('|', $line);
+  }
+  return $result;
+}
+
+function doScenario($test_function, $lines) { 
+  global $arg_patterns, $FEATURE_NAME, $FEATURE_LONGNAME, $steps, $lead;     
+
+  $result = $state = '';
+
+  while (!is_null($line = array_shift($lines))) {
+    $any = preg_match('/^([A-Z]+)/i', $line, $matches);
+    $word1 = $any ? $matches[1] : '';
+    $tail = trim(substr($line, strlen($word1) + 1));
+
+    if (in_array($word1, array('Given', 'When', 'Then', 'And'))) {
+      $is_then = ($word1 == 'Then' or ($word1 == 'And' and $state == 'Then'));
+      if ($word1 == 'When' or $word1 == 'Then') $word1 .= '_';
+      if ($word1 == 'And') $word1 = 'And__'; else $state = $word1;
+      $multiline_arg = multiline_arg($lines);
+      $tail_escaped = str_replace("'", "\\'", $tail) . $multiline_arg;
+      $tail .= str_replace("\\'", "'", $multiline_arg);
+//      print_r(compact('multiline_arg','tail_escaped','tail'));
+      $result .= "$lead  $word1('$tail_escaped');\n";
+      $english = preg_replace("/$arg_patterns/ms", '(ARG)', $tail);
+      $step_function = lcfirst(preg_replace("/$arg_patterns|[^A-Z]/msi", '', ucwords($tail)));
+
+      $test_function_qualified = "$FEATURE_NAME - $test_function";
+      $err_args = compact(ray('step_function,FEATURE_LONGNAME,line')); // for error reporting, just in case 
+      $steps[$step_function] = fix_step_function(@$steps[$step_function], $test_function, $test_function_qualified, $english, $is_then, $tail, $err_args);
+    }
+  }
+ 
+  return $result;
 }

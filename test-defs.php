@@ -30,6 +30,10 @@ function gherkinGuts($statement, $type) {
     case 2: return $function($args[0], $args[1]);
     case 3: return $function($args[0], $args[1], $args[2]);
     case 4: return $function($args[0], $args[1], $args[2], $args[3]);
+    case 5: return $function($args[0], $args[1], $args[2], $args[3], $args[4]);
+    case 6: return $function($args[0], $args[1], $args[2], $args[3], $args[4], $args[5]);
+    case 7: return $function($args[0], $args[1], $args[2], $args[3], $args[4], $args[5], $args[6]);
+    case 8: return $function($args[0], $args[1], $args[2], $args[3], $args[4], $args[5], $args[6], $args[7]);
     default: die("Too many args ($count) in statement: $statement");
   }
 }
@@ -73,9 +77,10 @@ function randomPhone() {return '+1' . mt_rand(2, 9) . randomString(9, '9');}
  * These may or may not get used in any particular Scenario, but it is convenient to have them always available.
  */
 function usualSubs() {
+  global $picturePath;
   $subs_filename = __DIR__ . '/../usualSubs.inc';
   $date_format = '%d-%b-%Y';
-  
+
   $subs = $randoms = array();
   for ($i = 3; $i > 0; $i--) $randoms[] = "%whatever$i";
   for ($i = 3; $i > 0; $i--) $randoms[] = "%random$i";
@@ -84,7 +89,7 @@ function usualSubs() {
   for ($i = 5; $i > 0; $i--) $randoms[] = "%number$i"; // phone numbers
 
   foreach ($randoms as $key) {
-    while(in_array($r = (substr($key, 0, 7) == '%number' ? randomPhone() : '"' . randomString() . '"'), $subs));
+    while(in_array($r = (substr($key, 0, 7) == '%number' ? randomPhone() : embrace(randomString())), $subs));
     $subs[$key] = $r;
   }
   
@@ -94,6 +99,15 @@ function usualSubs() {
     $subs["%today-{$i}m"] = strftime($date_format, strtotime("-$i months"));
   }
   $subs['%today'] = strftime($date_format, time()); // must be last
+ 
+  for ($i = 1; $i > 0; $i--) {
+    if (!file_exists($dest = "$picturePath/picture$i.jpg")) { // destination file
+      $pic = file_get_contents('http://lorempixel.com/400/200'); // get random picture
+      file_put_contents($dest, $pic);
+    }
+    $subs["%picture$i"] = embrace("picture$i");
+  }
+
   if (file_exists($subs_filename)) include $subs_filename; // a chance to add or replace the usual subs
 
   return $subs;
@@ -134,6 +148,8 @@ function squeeze($string, $char) {
   $last = substr($string, -1);
   return ($first == $char and $last == $char)? substr($string, 1, strlen($string) - 2) : $string;
 }
+
+function embrace($string, $arms = '"') {return substr($arms, 0, 1) . $string . substr($arms, -1, 1);}
 
 /**
  * Make a string's first character lowercase
