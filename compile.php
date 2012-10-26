@@ -26,27 +26,10 @@ if (!file_exists($test_dir)) mkdir($test_dir);
 $info_filename = "$path/$MODULE.info";
 $info = @file_get_contents($info_filename);
 
-$steps_filename = "$path/$MODULE.steps";
-$steps_header = '<' . <<<EOF
-?php
-/**
- * @file
- *  Steps
- *
- * Provide step functions for functional testing.
- * This file is created automatically by the Gherkin compiler.
- *
- * Note, therefore, that most of this file might be changed automatically
- * when you run the compiler again. This @file header will not be affected,
- * but all of the function header comments are (re)generated automatically.
- *
- * Be assured that no functions will be deleted and the compiler will
- * never alter code within a function.
- *
- * You may also add statements just below this header (for example "use" and "require_once").
- */
-EOF;
+$steps_header_filename = './steps-header.php';
+$steps_header = file_get_contents($steps_header_filename);
 
+$steps_filename = "$path/$MODULE.steps";
 $steps_text = file_exists($steps_filename) ? file_get_contents($steps_filename) : $steps_header;
 
 /** $steps array
@@ -128,7 +111,7 @@ EOF;
  */
 function do_feature($feature_filename) {
   global $first_scenario_only, $arg_patterns, $FEATURE_NAME, $FEATURE_LONGNAME, $GHERKIN_PATH;
-  global $steps, $lead;     
+  global $steps, $lead, $TESTS, $SETUP_LINES;     
   $GROUP = basename(dirname(dirname($feature_filename)));
   $FEATURE_NAME = str_replace('.feature', '', basename($feature_filename));
   $FEATURE_LONGNAME = $FEATURE_NAME; // default English description of feature, in case it's missing from feature file
@@ -160,9 +143,8 @@ function do_feature($feature_filename) {
           $test_function = 'test' . (preg_replace("/[^A-Z]/i", '', ucwords($tail))); 
           $scenarios[$test_function] = array($line);
           break;
-        case 'Setup': 
-          $SETUP_LINES = "\n$lead  sceneSetup(\$this, __FUNCTION__);\n";
-          break;
+        case 'Variants':
+          if (!@$sections['Setup']) $state = 'preVariants';
       }
     } elseif ($state == 'Scenario') {
       $scenarios[$test_function][] = $line;
@@ -171,24 +153,50 @@ function do_feature($feature_filename) {
 
   // Parse each section
   foreach ($sections['Feature'] as $line) $FEATURE_HEADER .= "//   $line\n";
-  $variants = parseMultilines(@$sections['Variants'] ?: array('|a|')); // if empty, return a single line that will get replaced with itself
-  $SETUP_LINES .= doScenario('featureSetup', $sections['Setup']);
 
-  for ($i = 0; $i < count($variants); $i++) {
-    foreach ($scenarios as $test_function => $lines) {
-      $test_functioni = $test_function . $i;
-      foreach ($lines as $key => $line) $lines[$key] = strtr($line, array_combine($variants[0], $variants[$i])); // adjust for current variant
-      $line = array_shift($lines); // get the original Scenario line back
-      $TESTS .= "\n"
-        . "$lead// $line\n"
-        . "{$lead}public function $test_functioni() {\n"
-        . "$lead  sceneSetup(\$this, __FUNCTION__);\n"
-        . doScenario($test_function, $lines)
-        . "$lead}\n"; // close the test function definition
-    }
+  $prevariants = parseVariants(@$sections['preVariants']);
+  $prevariant_count = count($prevariants);
+  for ($i = 0; $i < $prevariant_count; $i++) {
+    $SETUP_LINES .= doSetups($sections['Setup'], $prevariants, $i);
+    foreach ($scenarios as $test_function => $lines) $TESTS .= doScenario($test_function, $lines, $prevariants, $i);
+  }
+
+  $variants = parseVariants(@$sections['Variants']); // if empty, return a single line that will get replaced with itself
+  if ($prevariant_count > 1) {
+    $filler = array_fill(1, $prevariant_count - 1, '');
+    $variants = array_splice($variants, 1, 0, $filler); // bump the relevant variation numbers so as not to repeat
+  }
+  for ($i = ($prevariant_count ?: 0); $i < count($variants); $i++) { // don't redo variant 0, skip the filler
+    foreach ($scenarios as $test_function => $lines) $TESTS .= doScenario($test_function, $lines, $variants, $i);
   }
 
   return compact(ray('GHERKIN_PATH,GROUP,FEATURE_NAME,FEATURE_LONGNAME,FEATURE_HEADER,SETUP_LINES,TESTS'));
+}
+
+function doSetups($lines, $prevariants, $i) {
+  global $lead;
+  fixLines($lines, $prevariants, $i); // adjust for current variant
+  return ''
+    . "{$lead}  case($i):\n"
+    . parseScenario('featureSetup', $lines)
+    . "{$lead}  break;\n\n";
+}
+
+function doScenario($test_function, $lines, $variants, $i) {
+  global $lead;
+  $test_functioni = $test_function . $i;
+  fixLines($lines, $variants, $i); // adjust for current variant
+  $line = array_shift($lines); // get the original Scenario line back
+  return "\n"
+    . "$lead// $line\n"
+    . "{$lead}public function $test_functioni() {\n"
+    . "$lead  sceneSetup(\$this, __FUNCTION__, $i);\n"
+    . parseScenario($test_function, $lines)
+    . "$lead}\n"; // close the test function definition
+}
+
+function fixLines(&$lines, $variants, $i) {
+  if ($i) foreach ($lines as $key => $line) $lines[$key] = strtr($line, array_combine($variants[0], $variants[$i]));
 }
 
 /**
@@ -338,7 +346,8 @@ function expect($bool, $message) {
   if(!$bool) error(@$FEATURE_NAME . ": $message");
 }
 
-function parseMultilines($lines) {
+function parseVariants($lines) {
+  if (!$lines) return array(array(1));
   $result = array();
   while (substr(trim(@$lines[0]), 0, 1) == '|') {
     $line = squeeze(preg_replace('/ *\| */', '|', trim(array_shift($lines))), '|');
@@ -347,7 +356,7 @@ function parseMultilines($lines) {
   return $result;
 }
 
-function doScenario($test_function, $lines) { 
+function parseScenario($test_function, $lines) { 
   global $arg_patterns, $FEATURE_NAME, $FEATURE_LONGNAME, $steps, $lead;     
 
   $result = $state = '';

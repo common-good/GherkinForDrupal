@@ -38,11 +38,12 @@ function gherkinGuts($statement, $type) {
   }
 }
 
-function sceneSetup($scene, $test) {
+function sceneSetup($scene, $test, $variant = '') {
   global $sceneTest;
   $sceneTest = $scene;
   $sceneTest->subs = usualSubs(); 
   $sceneTest->currentTest = $test;
+  $sceneTest->variant = $variant;
 }
 
 /**
@@ -78,7 +79,6 @@ function randomPhone() {return '+1' . mt_rand(2, 9) . randomString(9, '9');}
  */
 function usualSubs() {
   global $picturePath;
-  $subs_filename = __DIR__ . '/../usualSubs.inc';
   $date_format = '%d-%b-%Y';
 
   $subs = $randoms = array();
@@ -108,7 +108,7 @@ function usualSubs() {
     $subs["%picture$i"] = embrace("picture$i");
   }
 
-  if (file_exists($subs_filename)) include $subs_filename; // a chance to add or replace the usual subs
+  if (function_exists('extra_subs')) extra_subs($subs); // defined in .steps -- a chance to add or replace the usual subs
 
   return $subs;
 }
