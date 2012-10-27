@@ -27,7 +27,7 @@ class %MODULE%FEATURE_NAME extends DrupalWebTestCase {
 
   public function setUp() { // especially, enable any modules required for the tests
     parent::setUp(self::MODULE);
-    if (function_exists('extra_setup')) extra_setup($this); // defined in %MODULE.steps
+    if (function_exists('extraSetup')) extraSetup($this); // defined in %MODULE.steps
     sceneSetup($this, __FUNCTION__);
 
     switch ($this->variant) {

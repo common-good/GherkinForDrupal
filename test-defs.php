@@ -17,12 +17,12 @@ function gherkinGuts($statement, $type) {
   if($type == 'Given' or $type == 'When_') $testOnly = FALSE;
   if($type == 'Then_') $testOnly = TRUE;
 
-  $arg_patterns = '"(.*?)"|([\-\+]?[0-9]+(?:[\.\,\-][0-9]+)*)';
+  $argPatterns = '"(.*?)"|([\-\+]?[0-9]+(?:[\.\,\-][0-9]+)*)';
   $statement = getConstants(strtr($statement, $sceneTest->subs));
-  preg_match_all("/$arg_patterns/ms", $statement, $matches);
+  preg_match_all("/$argPatterns/ms", $statement, $matches);
   $args = otherFixes(multilineCheck($matches[0])); // phpbug: $matches[1] has null for numeric args (so the check removes quotes)
   $count = count($args);
-  $function = lcfirst(preg_replace("/$arg_patterns|[^A-Z]/ims", '', ucwords($statement)));
+  $function = lcfirst(preg_replace("/$argPatterns|[^A-Z]/ims", '', ucwords($statement)));
 
   switch ($count) {
     case 0: return $function();
@@ -108,7 +108,7 @@ function usualSubs() {
     $subs["%picture$i"] = embrace("picture$i");
   }
 
-  if (function_exists('extra_subs')) extra_subs($subs); // defined in .steps -- a chance to add or replace the usual subs
+  if (function_exists('extraSubs')) extraSubs($subs); // defined in .steps -- a chance to add or replace the usual subs
 
   return $subs;
 }

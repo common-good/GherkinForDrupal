@@ -11,7 +11,7 @@ include __DIR__ . '/test-defs.php';
 $path = '../' . $_GET['module']; // relative path from compiler to module directory
 $GHERKIN_PATH = str_repeat('../', substr_count($path, '/') + 1) . basename(dirname($_SERVER['PHP_SELF']));
 $gEOL = '\\\\'; // end of line marker
-$arg_patterns = '"(.*?)"|([\-\+]?[0-9]+(?:[\.\,\-][0-9]+)*)|(%[a-z][A-Za-z0-9]+)'; // what forms the step arguments can take
+$argPatterns = '"(.*?)"|([\-\+]?[0-9]+(?:[\.\,\-][0-9]+)*)|(%[a-z][A-Za-z0-9]+)'; // what forms the step arguments can take
 $lead = '  '; // line leader (indentation for everything in class definition
 
 $flnms = glob("$path/features");
@@ -42,7 +42,7 @@ $steps_text = file_exists($steps_filename) ? file_get_contents($steps_filename) 
  *   'callers' array is the list of tests that use this specific step function
  *   'arg_count' is the number of arguments (for new steps only)
  */
-$steps = get_steps($steps_text); // global
+$steps = getSteps($steps_text); // global
 
 $features = findFiles("$path/features", '/\.feature$/', FALSE);
 
@@ -58,9 +58,10 @@ foreach ($features as $feature_filename) {
   echo "Created: $test_filename<br>";
 }
 
-foreach ($steps as $function_name => $step) {
-  extract($step); // original, english, to_replace, callers, TMB, function_name
-  $new_callers = replacement($callers, $TMB, $function_name); // (replacement includes function's opening parenthesis)
+//print_r($steps); die();
+foreach ($steps as $functionName => $step) {
+  extract($step); // original, english, to_replace, callers, TMB, functionName
+  $new_callers = replacement($callers, $TMB, $functionName); // (replacement includes function's opening parenthesis)
   if ($original == 'new') {
     for ($arg_list = '', $i = 0; $i < $arg_count; $i++) {
       $arg_list .= ($arg_list ? ', ' : '') . '$arg' . ($i + 1);
@@ -110,8 +111,8 @@ EOF;
  *   TESTS: all the tests and steps
  */
 function do_feature($feature_filename) {
-  global $first_scenario_only, $arg_patterns, $FEATURE_NAME, $FEATURE_LONGNAME, $GHERKIN_PATH;
-  global $steps, $lead, $TESTS, $SETUP_LINES;     
+  global $first_scenario_only, $argPatterns, $FEATURE_NAME, $FEATURE_LONGNAME, $GHERKIN_PATH;
+  global $steps, $lead;     
   $GROUP = basename(dirname(dirname($feature_filename)));
   $FEATURE_NAME = str_replace('.feature', '', basename($feature_filename));
   $FEATURE_LONGNAME = $FEATURE_NAME; // default English description of feature, in case it's missing from feature file
@@ -124,9 +125,10 @@ function do_feature($feature_filename) {
   // Parse into sections and scenarios
   $section_headers = explode(' ', 'Feature Variants Setup Scenario');
   $sections = $scenarios = array();
+  $variantGroups = array();
 
   while (!is_null($line = array_shift($lines))) {
-    $line = trim($line);
+    if (!($line = trim($line))) continue; // ignore blank lines
     if (substr($line, 0, 1) == '#') continue; // ignore comment lines
     $any = preg_match('/^([A-Z]+)/i', $line, $matches);
     $word1 = $word1_original = $any ? $matches[1] : '';
@@ -140,63 +142,72 @@ function do_feature($feature_filename) {
           $FEATURE_LONGNAME = $tail;
           break;
         case 'Scenario': 
-          $test_function = 'test' . (preg_replace("/[^A-Z]/i", '', ucwords($tail))); 
-          $scenarios[$test_function] = array($line);
+          $testFunction = 'test' . (preg_replace("/[^A-Z]/i", '', ucwords($tail))); 
+          $scenarios[$testFunction] = array($line);
           break;
         case 'Variants':
-          if (!@$sections['Setup']) $state = 'preVariants';
+          $variantGroups[] = $variant_count = count(@$sections['Variants']);
+          if (@$sections['Setup'] and !isset($firstVariantAfterSetup)) $firstVariantAfterSetup = $variant_count;
       }
     } elseif ($state == 'Scenario') {
-      $scenarios[$test_function][] = $line;
+      $scenarios[$testFunction][] = $line;
     } else $sections[$state][] = $line;
   }
-
-  // Parse each section
-  foreach ($sections['Feature'] as $line) $FEATURE_HEADER .= "//   $line\n";
-
-  $prevariants = parseVariants(@$sections['preVariants']);
-  $prevariant_count = count($prevariants);
-  for ($i = 0; $i < $prevariant_count; $i++) {
-    $SETUP_LINES .= doSetups($sections['Setup'], $prevariants, $i);
-    foreach ($scenarios as $test_function => $lines) $TESTS .= doScenario($test_function, $lines, $prevariants, $i);
-  }
+  foreach ($sections['Feature'] as $line) $FEATURE_HEADER .= "//   $line\n"; // parse features
 
   $variants = parseVariants(@$sections['Variants']); // if empty, return a single line that will get replaced with itself
-  if ($prevariant_count > 1) {
-    $filler = array_fill(1, $prevariant_count - 1, '');
-    $variants = array_splice($variants, 1, 0, $filler); // bump the relevant variation numbers so as not to repeat
-  }
-  for ($i = ($prevariant_count ?: 0); $i < count($variants); $i++) { // don't redo variant 0, skip the filler
-    foreach ($scenarios as $test_function => $lines) $TESTS .= doScenario($test_function, $lines, $variants, $i);
+  if (!isset($firstVariantAfterSetup)) $firstVariantAfterSetup = count($variants); // in case all variants are pre-setup
+  if (!@$variantGroups) $variantGroups = array(0);
+  $g9 = count($variantGroups);
+  $variantGroups[] = count($variants); // point past the end of the last group (for convenience)
+
+  for ($g = 0; $g < $g9; $g++) { // for each variant group, parse setups and scenarios with all their variants
+    $start = $variantGroups[$g]; // pointer to first line of variant group
+    $next = $variantGroups[$g + 1]; // pointer past last line of variant group
+    $preSetup = ($start < $firstVariantAfterSetup); // whether to make changes to setup steps as well as scenarios
+    for ($i = $start + ($start > 0 ? 1 : 0); $i < $next; $i++) { // for each variant in group (do unaltered scenario only once)
+      if ($preSetup) $SETUP_LINES .= doSetups($sections['Setup'], $variants, $start, $i);
+      foreach ($scenarios as $testFunction => $lines) $TESTS .= doScenario($testFunction, $lines, $variants, $start, $i);
+    }
   }
 
   return compact(ray('GHERKIN_PATH,GROUP,FEATURE_NAME,FEATURE_LONGNAME,FEATURE_HEADER,SETUP_LINES,TESTS'));
 }
 
-function doSetups($lines, $prevariants, $i) {
+function doSetups($lines, $variants, $start, $i) {
   global $lead;
-  fixLines($lines, $prevariants, $i); // adjust for current variant
+  adjustLines($lines, $variants, $start, $i); // adjust for current variant
   return ''
     . "{$lead}  case($i):\n"
     . parseScenario('featureSetup', $lines)
     . "{$lead}  break;\n\n";
 }
 
-function doScenario($test_function, $lines, $variants, $i) {
+function doScenario($testFunction, $lines, $variants, $start, $i) {
   global $lead;
-  $test_functioni = $test_function . $i;
-  fixLines($lines, $variants, $i); // adjust for current variant
+  $testFunctioni = $testFunction . "_$i";
+  adjustLines($lines, $variants, $start, $i); // adjust for current variant
   $line = array_shift($lines); // get the original Scenario line back
   return "\n"
     . "$lead// $line\n"
-    . "{$lead}public function $test_functioni() {\n"
+    . "{$lead}public function $testFunctioni() {\n"
     . "$lead  sceneSetup(\$this, __FUNCTION__, $i);\n"
-    . parseScenario($test_function, $lines)
+    . parseScenario($testFunction, $lines)
     . "$lead}\n"; // close the test function definition
 }
 
-function fixLines(&$lines, $variants, $i) {
-  if ($i) foreach ($lines as $key => $line) $lines[$key] = strtr($line, array_combine($variants[0], $variants[$i]));
+function adjustLines(&$lines, $variants, $start, $i) {
+  if ($i > $start) foreach ($lines as $key => $line) $lines[$key] = strtr($line, array_combine($variants[$start], $variants[$i]));
+}
+
+function parseVariants($lines) {
+  if (!$lines) return array(array(1));
+  $result = array();
+  while (substr(trim(@$lines[0]), 0, 1) == '|') {
+    $line = squeeze(preg_replace('/ *\| */', '|', trim(array_shift($lines))), '|');
+    $result[] = explode('|', $line);
+  }
+  return $result;
 }
 
 /**
@@ -238,8 +249,8 @@ function findFiles($path = '.', $pattern = '/./', $result = '') {
  * Given the text of the steps file, return an array of steps (see $steps)
  *
  */
-function get_steps($steps_text) {
-  $step_keys = ray('original,english,to_replace,callers,function_name');
+function getSteps($steps_text) {
+  $stepKeys = ray('original,english,to_replace,callers,functionName');
   $pattern = ''
   . '^/\*\*$\s'
   . '^ \* ([^\*]*?)$\s'
@@ -250,10 +261,10 @@ function get_steps($steps_text) {
   preg_match_all("~$pattern~ms", $steps_text, $matches, PREG_SET_ORDER);
   $steps = array();
   foreach ($matches as $step) {
-    $step = array_combine($step_keys, $step);
+    $step = array_combine($stepKeys, $step);
 //    $step['callers'] = explode("\n *     ", $step['callers']); // add to the list, but don't delete
     $step['callers'] = array(); // rebuild this list every time
-    $steps[$step['function_name']] = $step; // use the function name as the index for the step
+    $steps[$step['functionName']] = $step; // use the function name as the index for the step
   }
   return $steps;
 }
@@ -264,10 +275,10 @@ function get_steps($steps_text) {
  * When updating an existing step function, replace the header with this.
  * (guaranteed to be unique for each step)
  */
-function replacement($callers, $TMB, $function_name) {
+function replacement($callers, $TMB, $functionName) {
   foreach ($callers as $key => $func) $callers[$key] .= ' ' . $TMB[$func];
   $callers = join("\n *     ", $callers);
-  return "$callers\n */\nfunction $function_name(";
+  return "$callers\n */\nfunction $functionName(";
 }
 
 /**
@@ -294,42 +305,42 @@ function multiline_arg(&$lines) {
   return $result ? " \"DATA$result\"" : '';
 }
 
-function new_step_function($original, $test_function_qualified, $english, $is_then, $tail) {
-  global $arg_patterns;
-  $callers = array($test_function_qualified);
-  $TMB = array($test_function_qualified => ($is_then ? 'TEST' : 'MAKE'));
-  preg_match_all("/$arg_patterns/ms", $tail, $matches);
-//  print_r(compact('arg_patterns', 'tail', 'matches')); die();
-//  expect(@$matches[1], "Test function \"$test_function_qualified\" has no args.");
+function newStepFunction($original, $testFunctionQualified, $english, $isThen, $tail) {
+  global $argPatterns;
+  $callers = array($testFunctionQualified);
+  $TMB = array($testFunctionQualified => ($isThen ? 'TEST' : 'MAKE'));
+  preg_match_all("/$argPatterns/ms", $tail, $matches);
+//  print_r(compact('argPatterns', 'tail', 'matches')); die();
+//  expect(@$matches[1], "Test function \"$testFunctionQualified\" has no args.");
   $arg_count = @$matches[1] ? count($matches[1]) : 0;
   return compact(ray('original,english,callers,TMB,arg_count'));
 }
 
-function fix_step_function($func_array, $test_function, $test_function_qualified, $english, $is_then, $tail, $err_args) {
-  if (!$func_array) return new_step_function('new', $test_function_qualified, $english, $is_then, $tail);
+function fixStepFunction($funcArray, $testFunction, $testFunctionQualified, $english, $isThen, $tail, $err_args) {
+  if (!$funcArray) return newStepFunction('new', $testFunctionQualified, $english, $isThen, $tail);
   
-  if(($old_english = @$func_array['english']) != $english) error(
+  if(($old_english = @$funcArray['english']) != $english) error(
     "<br>WARNING: You tried to redefine step function \"!step_function\". "
     . "Delete the old one first.<br>\n"
     . "Old: $old_english<br>\n"
     . "New: $english<br>\n"
     . "  in Feature: !FEATURE_LONGNAME<br>\n"
-    . "  in Scenario: $test_function<br>\n"
+    . "  in Scenario: $testFunction<br>\n"
     . "  in Step: !line<br>\n", 
     $err_args
   );
   
-  if ($func_array['original'] != 'new') $func_array['original'] = 'changed';
-  if (!in_array($test_function_qualified, $func_array['callers'])) {
-    $func_array['callers'][] = $test_function_qualified;
-    $func_array['TMB'][$test_function_qualified] = ($is_then ? 'TEST' : 'MAKE');
+  if ($funcArray['original'] != 'new') $funcArray['original'] = 'changed';
+  if (!in_array($testFunctionQualified, $funcArray['callers'])) {
+    $funcArray['callers'][] = $testFunctionQualified;
+    $funcArray['TMB'][$testFunctionQualified] = ($isThen ? 'TEST' : 'MAKE');
   } else {
-    $TMB_changes = $is_then ? array('MAKE' => 'BOTH') : array('TEST' => 'BOTH');
-    //print_r(compact('TMB_changes','is_then','test_function_qualified') + array('zot'=>$func_array['TMB'][$test_function_qualified]));
-    $func_array['TMB'][$test_function_qualified] = strtr($func_array['TMB'][$test_function_qualified], $TMB_changes);
-    //print_r(compact('TMB_changes','is_then','test_function_qualified') + array('zot'=>$func_array['TMB'][$test_function_qualified])); die();
+    $TMB_changes = $isThen ? array('MAKE' => 'BOTH') : array('TEST' => 'BOTH');
+    //print_r(compact('TMB_changes','isThen','testFunctionQualified') + array('zot'=>$funcArray['TMB'][$testFunctionQualified]));
+    $funcArray['TMB'][$testFunctionQualified] = strtr($funcArray['TMB'][$testFunctionQualified], $TMB_changes);
+    //print_r(compact('TMB_changes','isThen','testFunctionQualified') + array('zot'=>$funcArray['TMB'][$testFunctionQualified])); die();
   }
-  return $func_array;
+  return $funcArray;
 }
 
 function ray($s) {return explode(',', $s);}
@@ -346,28 +357,16 @@ function expect($bool, $message) {
   if(!$bool) error(@$FEATURE_NAME . ": $message");
 }
 
-function parseVariants($lines) {
-  if (!$lines) return array(array(1));
-  $result = array();
-  while (substr(trim(@$lines[0]), 0, 1) == '|') {
-    $line = squeeze(preg_replace('/ *\| */', '|', trim(array_shift($lines))), '|');
-    $result[] = explode('|', $line);
-  }
-  return $result;
-}
-
-function parseScenario($test_function, $lines) { 
-  global $arg_patterns, $FEATURE_NAME, $FEATURE_LONGNAME, $steps, $lead;     
-
+function parseScenario($testFunction, $lines) { 
+  global $argPatterns, $FEATURE_NAME, $FEATURE_LONGNAME, $steps, $lead;     
   $result = $state = '';
 
   while (!is_null($line = array_shift($lines))) {
     $any = preg_match('/^([A-Z]+)/i', $line, $matches);
     $word1 = $any ? $matches[1] : '';
     $tail = trim(substr($line, strlen($word1) + 1));
-
     if (in_array($word1, array('Given', 'When', 'Then', 'And'))) {
-      $is_then = ($word1 == 'Then' or ($word1 == 'And' and $state == 'Then'));
+      $isThen = ($word1 == 'Then' or ($word1 == 'And' and $state == 'Then'));
       if ($word1 == 'When' or $word1 == 'Then') $word1 .= '_';
       if ($word1 == 'And') $word1 = 'And__'; else $state = $word1;
       $multiline_arg = multiline_arg($lines);
@@ -375,12 +374,12 @@ function parseScenario($test_function, $lines) {
       $tail .= str_replace("\\'", "'", $multiline_arg);
 //      print_r(compact('multiline_arg','tail_escaped','tail'));
       $result .= "$lead  $word1('$tail_escaped');\n";
-      $english = preg_replace("/$arg_patterns/ms", '(ARG)', $tail);
-      $step_function = lcfirst(preg_replace("/$arg_patterns|[^A-Z]/msi", '', ucwords($tail)));
+      $english = preg_replace("/$argPatterns/ms", '(ARG)', $tail);
+      $step_function = lcfirst(preg_replace("/$argPatterns|[^A-Z]/msi", '', ucwords($tail)));
 
-      $test_function_qualified = "$FEATURE_NAME - $test_function";
+      $testFunctionQualified = "$FEATURE_NAME - $testFunction";
       $err_args = compact(ray('step_function,FEATURE_LONGNAME,line')); // for error reporting, just in case 
-      $steps[$step_function] = fix_step_function(@$steps[$step_function], $test_function, $test_function_qualified, $english, $is_then, $tail, $err_args);
+      $steps[$step_function] = fixStepFunction(@$steps[$step_function], $testFunction, $testFunctionQualified, $english, $isThen, $tail, $err_args);
     }
   }
  
