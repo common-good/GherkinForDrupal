@@ -160,14 +160,15 @@ function do_feature($feature_filename) {
   if (!@$variantGroups) $variantGroups = array(0);
   $g9 = count($variantGroups);
   $variantGroups[] = count($variants); // point past the end of the last group (for convenience)
-
+//print_r(compact('variants','variantGroups'));
   for ($g = 0; $g < $g9; $g++) { // for each variant group, parse setups and scenarios with all their variants
     $start = $variantGroups[$g]; // pointer to first line of variant group
     $next = $variantGroups[$g + 1]; // pointer past last line of variant group
     $preSetup = ($start < $firstVariantAfterSetup); // whether to make changes to setup steps as well as scenarios
     for ($i = $start + ($start > 0 ? 1 : 0); $i < $next; $i++) { // for each variant in group (do unaltered scenario only once)
-      if ($preSetup) $SETUP_LINES .= doSetups($sections['Setup'], $variants, $start, $i);
+      if ($i == 0 or $preSetup) $SETUP_LINES .= doSetups($sections['Setup'], $variants, $start, $i);
       foreach ($scenarios as $testFunction => $lines) $TESTS .= doScenario($testFunction, $lines, $variants, $start, $i);
+//    print_r(compact('start','next','preSetup','g','g9','i', 'TESTS'));
     }
   }
 
