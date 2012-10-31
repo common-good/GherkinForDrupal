@@ -22,9 +22,10 @@ function doModule($module) {
   $path = __DIR__ . "/../$module"; // relative path from compiler to module directory
   $features = str_replace("$path/features/", '', str_replace('.feature', '', findFiles("$path/features", '/.*\.feature/')));
 
-  // SMS: OpenAnAccountForTheCaller AbbreviationsWork ExchangeForCash GetHelp GetInformation Transact Undo OfferToExchangeUSDollarsForRCredits
-  // Smart: Startup IdentifyQR Transact UndoCompleted UndoAttack Insufficient
-  $features = array('Insufficient'); // uncomment to run just one feature (test set)
+// SMS: OpenAnAccountForTheCaller AbbreviationsWork ExchangeForCash GetHelp GetInformation Transact Undo OfferToExchangeUSDollarsForRCredits
+// Smart: Startup IdentifyQR Transact UndoCompleted UndoAttack Insufficient
+// Web: Signup
+  $features = array('Signup'); // uncomment to run just one feature (test set)
 //  $oneScene = 'testAMemberConfirmsRequestToUndoACompletedCashCharge'; // uncomment to run just one test scenario
 //  $oneVariant = 0; // uncomment to focus on a single variant (usually 0)
 

@@ -166,7 +166,7 @@ function do_feature($feature_filename) {
     $next = $variantGroups[$g + 1]; // pointer past last line of variant group
     $preSetup = ($start < $firstVariantAfterSetup); // whether to make changes to setup steps as well as scenarios
     for ($i = $start + ($start > 0 ? 1 : 0); $i < $next; $i++) { // for each variant in group (do unaltered scenario only once)
-      if ($i == 0 or $preSetup) $SETUP_LINES .= doSetups($sections['Setup'], $variants, $start, $i);
+      if ($i == 0 or $preSetup) if (@$sections['Setup']) $SETUP_LINES .= doSetups($sections['Setup'], $variants, $start, $i);
       foreach ($scenarios as $testFunction => $lines) $TESTS .= doScenario($testFunction, $lines, $variants, $start, $i);
 //    print_r(compact('start','next','preSetup','g','g9','i', 'TESTS'));
     }
@@ -368,8 +368,8 @@ function parseScenario($testFunction, $lines) {
     $tail = trim(substr($line, strlen($word1) + 1));
     if (in_array($word1, array('Given', 'When', 'Then', 'And'))) {
       $isThen = ($word1 == 'Then' or ($word1 == 'And' and $state == 'Then'));
-      if ($word1 == 'When' or $word1 == 'Then') $word1 .= '_';
       if ($word1 == 'And') $word1 = 'And__'; else $state = $word1;
+      if ($word1 == 'When' or $word1 == 'Then') $word1 .= '_';
       $multiline_arg = multiline_arg($lines);
       $tail_escaped = str_replace("'", "\\'", $tail) . $multiline_arg;
       $tail .= str_replace("\\'", "'", $multiline_arg);
