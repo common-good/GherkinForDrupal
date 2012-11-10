@@ -25,6 +25,7 @@ This Gherkin compiler makes several extensions to the standard Gherkin language:
  * You can include a "Variants" section after the Feature header, consisting of a single multi-line argument
    whose first line is a list of values to be replaced and each subsequent line is a list of replacements.
    The whole series of tests will be run as-is, then with each list of replacements.
+   You can use double quotes in Variant lines, without having to use doubled single quotes.
  * You can include a special first scenario headed "Setup:" instead of "Scenario:" that will be run
    at the start of each scenario to set things up. Typically this will include "Given" (and "And" or "When") statements,
    but you can also include "Then"s (and "And"s) to test the setup.

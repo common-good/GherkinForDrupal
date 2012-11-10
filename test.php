@@ -31,10 +31,12 @@ if (!@$the_menu) if (count($modules) > 1) report('OVERALL', $okALL, $noALL);
  */
 function doModule($module) {
   global $ok, $no, $fails, $okALL, $noALL, $the_feature, $the_menu, $programPath;
+  global $base_url;
   $fails = $ok = $no = 0; // results counters
 
   $moduleName = strtoupper(basename($module));
   $path = __DIR__ . "/../$module"; // relative path from test program to module directory
+  file_get_contents("$base_url/sites/all/modules/gherkin/compile.php?module=$module"); // recompile tests first
   $features = str_replace("$path/features/", '', str_replace('.feature', '', findFiles("$path/features", '/.*\.feature/')));
   if (@$the_feature) $features = array($the_feature);
   $link = testLink('ALL', $module);
@@ -45,7 +47,8 @@ function doModule($module) {
     insertMessage(join('<br>', $menu) . '<br>&nbsp;');
   } else {
     foreach ($features as $feature) dotest($module, $feature);
-    report($moduleName, $ok, $no, $module);
+    $featureLink = @$the_feature ? ' (' . testLink($feature, $module, $feature) . ')' : '';
+    report($moduleName . $featureLink, $ok, $no, $module);
   }
 }  
 
