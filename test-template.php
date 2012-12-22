@@ -5,15 +5,14 @@ require_once __DIR__ . '/../%MODULE.steps';
 
 class %MODULE%FEATURE_NAME extends DrupalWebTestCase {
   var $subs; // percent parameters (to Given(), etc.) and their replacements (eg: %random1 becomes some random string)
-  var $currentTest;
-  var $variant;
+  var $sceneName;
   const SHORT_NAME = '%FEATURE_NAME';
   const FEATURE_NAME = '%MODULE Test - %FEATURE_NAME';
   const DESCRIPTION = '%FEATURE_LONGNAME';
   const MODULE = '%MODULE';
 
   public function gherkin($statement, $type) {
-    $this->assertTrue(gherkinGuts($statement, $type), $statement, $this->currentTest);
+    $this->assertTrue(gherkinGuts($statement, $type), $statement, $this->sceneName);
   }
   
   public static function getInfo() {
@@ -25,12 +24,16 @@ class %MODULE%FEATURE_NAME extends DrupalWebTestCase {
     );
   }
 
-  public function setUp() { // especially, enable any modules required for the tests
+  public function setUp($sceneName, $variant = '') { // especially, enable any modules required for the tests
+    global $sceneTest; $sceneTest = $this;
     parent::setUp(self::MODULE);
-    if (function_exists('extraSetup')) extraSetup($this); // defined in %MODULE.steps
-    sceneSetup($this, __FUNCTION__);
 
-    switch ($this->variant) {
+    $this->subs = usualSubs();
+    $this->sceneName = __FUNCTION__;
+    if (function_exists('extraSetup')) extraSetup($this); // defined in %MODULE.steps
+    $this->sceneName = $sceneName;
+
+    switch ($variant) {
     default: // fall through to case(0)
 %SETUP_LINES
     }

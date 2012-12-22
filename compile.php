@@ -192,7 +192,7 @@ function doScenario($testFunction, $lines, $variants, $start, $i) {
   return "\n"
     . "$lead// $line\n"
     . "{$lead}public function $testFunctioni() {\n"
-    . "$lead  sceneSetup(\$this, __FUNCTION__, $i);\n"
+    . "$lead  \$this->setUp(__FUNCTION__, $i);\n"
     . parseScenario($testFunction, $lines)
     . "$lead}\n"; // close the test function definition
 }
@@ -351,7 +351,7 @@ function strtr2($string, $subs, $prefix = '%') {
   return $string;
 }
 
-function error($message, $subs = array()) {die(strtr2("\n\n$message.", $subs, '!') . ' See the file "howto.txt".');}
+function error($message, $subs = array()) {die(strtr2("\n\nERROR: $message.", $subs, '!') . ' See the file "howto.txt".');}
 
 function expect($bool, $message) {
   global $FEATURE_NAME;
@@ -378,7 +378,7 @@ function parseScenario($testFunction, $lines) {
       $english = preg_replace("/$argPatterns/ms", '(ARG)', $tail);
       $step_function = lcfirst(preg_replace("/$argPatterns|[^A-Z]/msi", '', ucwords($tail)));
 
-      $testFunctionQualified = "$FEATURE_NAME - $testFunction";
+      $testFunctionQualified = str_replace('- test', '', str_replace('- feature', '', "$FEATURE_NAME - $testFunction"));
       $err_args = compact(ray('step_function,FEATURE_LONGNAME,line')); // for error reporting, just in case 
       $steps[$step_function] = fixStepFunction(@$steps[$step_function], $testFunction, $testFunctionQualified, $english, $isThen, $tail, $err_args);
     }

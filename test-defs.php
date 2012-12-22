@@ -1,5 +1,4 @@
 <?php
-
 define('GHERKIN_EOL', '\\'); // record delimiter in multiline arguments
 global $sceneTest; // current scenario test object
 global $testOnly; // step functions can create the asserted reality, except when called as "Then" (or "And")
@@ -13,16 +12,23 @@ function And__($statement) {return Gherkin($statement, __FUNCTION__);}
 // the body of the gherkin function in each test file
 // (indirectly called by Given(), When(), etc.
 function gherkinGuts($statement, $type) {
-  global $sceneTest, $testOnly;
+  global $sceneTest, $testOnly, $skipToStep;
   if($type == 'Given' or $type == 'When_') $testOnly = FALSE;
   if($type == 'Then_') $testOnly = TRUE;
 
   $argPatterns = '"(.*?)"|([\-\+]?[0-9]+(?:[\.\,\-][0-9]+)*)';
-  $statement = getConstants(strtr($statement, $sceneTest->subs));
-  preg_match_all("/$argPatterns/ms", $statement, $matches);
-  $args = otherFixes(multilineCheck($matches[0])); // phpbug: $matches[1] has null for numeric args (so the check removes quotes)
-  $count = count($args);
   $function = lcfirst(preg_replace("/$argPatterns|[^A-Z]/ims", '', ucwords($statement)));
+  if (@$skipToStep) {
+    if ($skipToStep != $function) return NULL;
+    $skipToStep = NULL;
+//    return TRUE;
+  }
+  $statement = getConstants(strtr($statement, $sceneTest->subs));
+  cleanMultilineArg($statement);
+
+  preg_match_all("/$argPatterns/ms", $statement, $matches);
+  $args = otherFixes(multilineCheck($matches[0])); // phpbug: $matches[1] has null for numeric args (the check removes quotes)
+  $count = count($args);
 
   switch ($count) {
     case 0: return $function();
@@ -38,12 +44,15 @@ function gherkinGuts($statement, $type) {
   }
 }
 
-function sceneSetup($scene, $test, $variant = '') {
-  global $sceneTest;
-  $sceneTest = $scene;
-  $sceneTest->subs = usualSubs(); 
-  $sceneTest->currentTest = $test;
-  $sceneTest->variant = $variant;
+/**
+ * Remove quotes around standard % string subs in multiline args.
+ * Remove other troublesome sequences too: => indicates a subvalue (for example a selected option)
+ */
+function cleanMultilineArg($statement) {
+  $lines = explode("\n", $statement, 2);
+  if ($arg = @$lines[1]) {
+    return $lines[0] . str_replace('=>', '', str_replace('"', '', $arg)) . '"'; 
+  } else return $statement;
 }
 
 /**
@@ -56,7 +65,7 @@ function sceneSetup($scene, $test, $variant = '') {
 function randomString($len = 0, $type = '?'){
   if (!$len) $len = mt_rand(1, 50);
 
- 	$symbol = '-_^~@&|=+;!,(){}[].?*# '; // no quotes (messes up args), no percent (because it occasionally looks like a constant)
+ 	$symbol = '-_^~@&=+;!,(){}[].?*# '; // no quotes or vertical bars (messes up args), no percent (because it occasionally looks like a constant)
   $upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
   $lower = 'abcdefghijklmnopqrstuvwxwz';
   $digits = '0123456789';
@@ -118,9 +127,7 @@ function usualSubs() {
  *
  * If the final argument is a string representing a Gherkin multi-line definition of records,
  * then change it to the associative array represented by that string.
- *
  * @param $args: list of arguments to pass to the step function
- *
  * @return $args, possibly with the final argument replaced by an array
  */
 function multilineCheck($args) {
