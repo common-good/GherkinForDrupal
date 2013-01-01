@@ -47,7 +47,8 @@ This Gherkin compiler makes several extensions to the standard Gherkin language:
 	For example, after the <?php tag, your usualSubs.inc file could say: 
 	  $fruits = array('apple', 'banana', 'cherry');
 	  $subs['%fruit'] = $fruits[random(0, 2)];
-	Magic constants also work within other arguments, including multi-line arguments
+	Magic "%" arguments also work within other arguments, including multi-line arguments
+  * Any argument can be an array. Use "=>" to indicate a subvalue (for example a selected option) and separate subvalues with commas, like in an array definition, without the quotes. For example "first=>this,second=>that" produces an argument whose value is: array('first' => 'this', 'second' => 'that').
 
 _____________________________________________________________________________________
 
@@ -59,7 +60,7 @@ If your program directory is "zot", it should contain the following files and di
   other files and directories for your module 
   (any subdirectories for subsidiary modules will need their own gherkin, features, and test directories)
 
-When you create a feature, name the file after the feature using compressed titlecase 
+When you create a feature, name the file after the feature using punctuationless titlecase 
 -- for example, "PageTiltsWhenIPressEnter.feature" -- and save it in the features folder.
 
 To run the compiler, browse to path/gherkin/compiler.php?your_program_directory

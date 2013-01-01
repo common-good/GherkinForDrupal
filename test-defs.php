@@ -17,14 +17,14 @@ function gherkinGuts($statement, $type) {
   if($type == 'Then_') $testOnly = TRUE;
 
   $argPatterns = '"(.*?)"|([\-\+]?[0-9]+(?:[\.\,\-][0-9]+)*)';
-  $function = lcfirst(preg_replace("/$argPatterns|[^A-Z]/ims", '', ucwords($statement)));
+  $function = lcfirst(preg_replace("/%[A-Z][A-Z0-9]*|$argPatterns|[^A-Z]/ims", '', ucwords($statement)));
   if (@$skipToStep) {
     if ($skipToStep != $function) return NULL;
     $skipToStep = NULL;
 //    return TRUE;
   }
-  $statement = getConstants(strtr($statement, $sceneTest->subs));
-  cleanMultilineArg($statement);
+  $statement = strtr(getConstants($statement), $sceneTest->subs); // getConstants first, in case random args have "@"
+  $statement = cleanMultilineArg($statement);
 
   preg_match_all("/$argPatterns/ms", $statement, $matches);
   $args = otherFixes(multilineCheck($matches[0])); // phpbug: $matches[1] has null for numeric args (the check removes quotes)
@@ -46,12 +46,12 @@ function gherkinGuts($statement, $type) {
 
 /**
  * Remove quotes around standard % string subs in multiline args.
- * Remove other troublesome sequences too: => indicates a subvalue (for example a selected option)
  */
 function cleanMultilineArg($statement) {
-  $lines = explode("\n", $statement, 2);
+  $mark = 'DATA\\';
+  $lines = explode($mark, $statement, 2);
   if ($arg = @$lines[1]) {
-    return $lines[0] . str_replace('=>', '', str_replace('"', '', $arg)) . '"'; 
+    return $lines[0] . $mark . str_replace('"', '', $arg) . '"'; 
   } else return $statement;
 }
 
@@ -65,7 +65,7 @@ function cleanMultilineArg($statement) {
 function randomString($len = 0, $type = '?'){
   if (!$len) $len = mt_rand(1, 50);
 
- 	$symbol = '-_^~@&=+;!,(){}[].?*# '; // no quotes or vertical bars (messes up args), no percent (because it occasionally looks like a constant)
+ 	$symbol = '-_^~&=+;!@,(){}[]<>.?*#\' '; // no double quotes or vertical bars (messes up args), no percent (because that occasionally looks like another substitution parameter)
   $upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
   $lower = 'abcdefghijklmnopqrstuvwxwz';
   $digits = '0123456789';
@@ -75,6 +75,7 @@ function randomString($len = 0, $type = '?'){
   if ($type == 'A') $chars = $upper . $lower;
   
   for($s = ''; $len > 0; $len--) $s .= $chars{mt_rand(0, strlen($chars)-1)};
+  str_replace('=>', '->', $s); // don't let it look like a sub-argument
   return($s); //  return str_shuffle($s); ?
 }
 
@@ -192,7 +193,16 @@ function otherFixes($args) {
     if (!is_array($one)) {
       $one = str_replace("''", '"', $one); // lastly, interpret double apostrophes as double quotes
       if (is_numeric($without = str_replace(',', '', $one))) $one = $without; // remove commas from numbers
-      $args[$key] = $one;
+      if (strpos($one, '=>')) { // arg is an array, parse it
+        $new = array();
+        foreach (explode(',', $one) as $subvalue) {
+          if (strpos($subvalue, '=>') !== FALSE) {
+            list ($k, $value) = explode('=>', $subvalue);
+            $new[$k] = $value;
+          } else $new[] = "ERROR (bad subvalue syntax: \"$subvalue\")";
+        }
+        $args[$key] = $new;
+      } else $args[$key] = $one;
     } else $args[$key] = otherFixes($one);
   }
   return $args;

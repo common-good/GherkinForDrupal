@@ -27,7 +27,7 @@ if ($q) {
   }
 }
 extract(u\just('menu module feature scene variant', $args), EXTR_PREFIX_ALL, 'the'); // overwrite resume, as specified
-if (@$the_scene) $the_variant = 0;
+//if (@$the_scene) $the_variant = 0;
 $modules = @$the_module ? array($the_module) : array('rcredits/rsms', 'rcredits/rsmart', 'rcredits/rweb'); // and admin
 u\deb("top of test.php: okAll=$okAll modules=" . print_r($modules, 1));
 
@@ -57,9 +57,10 @@ function doModule($module) {
 
   $moduleName = strtoupper(basename($module));
   $path = __DIR__ . "/../$module"; // relative path from test program to module directory
-  $compilation = file_get_contents("$base_url/sites/all/modules/gherkin/compile.php?module=$module"); // recompile tests first
+  $compilerPath = "$base_url/sites/all/modules/gherkin/compile.php?module=$module";
+  $compilation = file_get_contents($compilerPath); // recompile tests first
   if (strpos($compilation, 'ERROR:') !== FALSE) {
-    report($moduleName, 0, 'compile error', $module);
+    report($moduleName, 0, "<a href='$compilerPath'>compile error</a>", $module);
     return;
   }
   $features = str_replace("$path/features/", '', str_replace('.feature', '', findFiles("$path/features", '/.*\.feature$/')));
@@ -96,7 +97,7 @@ function doTest($module, $feature) {
   foreach ($matches[1] as $one) {
     list ($scene, $variant) = explode('_', $one);
     if (@$the_scene) if ($scene != $the_scene) continue;
-    if (isset($the_variant)) if ($variant != $the_variant) continue;
+    if (@$the_variant !== '') if ($variant != $the_variant) continue;
 
     if ("$module:$feature:$one" == @$resumeAt) u\deb('resuming now'); elseif (@$resumeAt) u\deb("skipping $module:$feature:$one");
 
@@ -115,7 +116,7 @@ function doTest($module, $feature) {
     $t->$one(); // run one test
     
     // Display results intermixed with debugging output, if any (so don't collect results before displaying)
-    $link = testLink($one, $module, $feature, $scene);
+    $link = testLink($one, $module, $feature, $scene, $variant);
     $results[0] .= " [$featureLink] $link";
     $results[0] = color($results[0], 'darkkhaki');
     \drupal_set_message(join(PHP_EOL, $results));
@@ -139,7 +140,7 @@ class DrupalWebTestCase {
       return;
     }
 
-    u\deb("NOT SKIPPING step=$step resumeAt=$resumeAt skipToStep=$skipToStep");
+//    u\deb("NOT SKIPPING step=$step resumeAt=$resumeAt skipToStep=$skipToStep");
     $where = $sceneName == 'Setup' ? "[$sceneName] " : '';
     list ($result, $color) = $bool ? array('OK', 'lightgreen') : array('NO', 'yellow');
     $results[] = $result = color("$result: $where$step", $color);
@@ -166,7 +167,10 @@ function insertMessage($s, $type = 'status') {
 
 function report($moduleName, $ok, $no, $module = '') {
   $moduleName = testLink($moduleName, $module);
-  if (!$no) $no = '_'; else $no = gotoError($no);
+  if ($no) {
+    if (!strpos($no, 'a href')) $no = gotoError($no); // add link unless it's already there
+  } else $no = '_';
+  
   $msg = <<<EOF
   <h1>
   $moduleName - 
@@ -177,9 +181,9 @@ EOF;
   insertMessage($msg);
 }
 
-function testLink($description, $module, $feature = '', $scene = '') {
+function testLink($description, $module, $feature = '', $scene = '', $variant = '') {
   global $programPath;
-  return "<a href='$programPath?module=$module&feature=$feature&scene=$scene&restart=1'>$description</a>";
+  return "<a href='$programPath?module=$module&feature=$feature&scene=$scene&variant=$variant&restart=1'>$description</a>";
 }
 
 function gotoError($title, $errorNum = 0) {

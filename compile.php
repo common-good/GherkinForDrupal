@@ -192,7 +192,7 @@ function doScenario($testFunction, $lines, $variants, $start, $i) {
   return "\n"
     . "$lead// $line\n"
     . "{$lead}public function $testFunctioni() {\n"
-    . "$lead  \$this->setUp(__FUNCTION__, $i);\n"
+    . "$lead  \$this->setUp2(__FUNCTION__, $i);\n"
     . parseScenario($testFunction, $lines)
     . "$lead}\n"; // close the test function definition
 }

@@ -24,7 +24,9 @@ class %MODULE%FEATURE_NAME extends DrupalWebTestCase {
     );
   }
 
-  public function setUp($sceneName, $variant = '') { // especially, enable any modules required for the tests
+  public function setUp() {} // must be compatible with DrupalWebTestCase::setUp()
+  
+  public function setUp2($sceneName, $variant = '') {
     global $sceneTest; $sceneTest = $this;
     parent::setUp(self::MODULE);
 
