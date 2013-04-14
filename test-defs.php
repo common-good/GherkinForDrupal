@@ -65,7 +65,7 @@ function cleanMultilineArg($statement) {
 function randomString($len = 0, $type = '?'){
   if (!$len) $len = mt_rand(1, 50);
 
- 	$symbol = '-_^~&=+;!@,(){}[]<>.?*#\' '; // no double quotes or vertical bars (messes up args), no percent (because that occasionally looks like another substitution parameter)
+ 	$symbol = '-_~=+;!@#%^&*(){}[]<>,.?\' '; // no double quotes or vertical bars (messes up args)
   $upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
   $lower = 'abcdefghijklmnopqrstuvwxwz';
   $digits = '0123456789';
@@ -75,7 +75,8 @@ function randomString($len = 0, $type = '?'){
   if ($type == 'A') $chars = $upper . $lower;
   
   for($s = ''; $len > 0; $len--) $s .= $chars{mt_rand(0, strlen($chars)-1)};
-  str_replace('=>', '->', $s); // don't let it look like a sub-argument
+  $s = str_replace('=>', '->', $s); // don't let it look like a sub-argument
+  $s = preg_replace('/[%@][A-Z]/e', 'strtolower("$0")', $s); // percent and ampersand occasionally look like substitution parameters
   return($s); //  return str_shuffle($s); ?
 }
 
@@ -99,9 +100,10 @@ function usualSubs() {
   for ($i = 5; $i > 0; $i--) $randoms[] = "%number$i"; // phone numbers
 
   foreach ($randoms as $key) {
-    while(in_array($r = (substr($key, 0, 7) == '%number' ? randomPhone() : embrace(randomString())), $subs));
+    while(in_array($r = (substr($key, 0, 7) == '%number' ? randomPhone() : ('"' . randomString() . '"')), $subs));
     $subs[$key] = $r;
   }
+  foreach (array(20, 32) as $i) $subs["%whatever$i"] = '"' . randomString($i) . '"';
   
   for ($i = 15; $i > 0; $i--) { // set up past dates highest first, eg to avoid missing the "5" in %today-15
     $subs["%today-{$i}d"] = strftime($date_format, strtotime("-$i days"));
@@ -115,7 +117,7 @@ function usualSubs() {
       $pic = file_get_contents('http://lorempixel.com/400/200'); // get random picture
       file_put_contents($dest, $pic);
     }
-    $subs["%picture$i"] = embrace("picture$i");
+    $subs["%picture$i"] = "\"picture$i\"";
   }
 
   if (function_exists('extraSubs')) extraSubs($subs); // defined in .steps -- a chance to add or replace the usual subs
@@ -156,8 +158,6 @@ function squeeze($string, $char) {
   $last = substr($string, -1);
   return ($first == $char and $last == $char)? substr($string, 1, strlen($string) - 2) : $string;
 }
-
-function embrace($string, $arms = '"') {return substr($arms, 0, 1) . $string . substr($arms, -1, 1);}
 
 /**
  * Make a string's first character lowercase

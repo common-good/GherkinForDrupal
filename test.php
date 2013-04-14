@@ -3,22 +3,23 @@
 use rCredits\Util as u;
 global $okAll, $noAll; $okAll = $noAll = 0; // overall results counters
 global $the_menu, $the_feature, $the_scene, $the_variant; // these allow for arbitrarily selective testing
-global $resumeAt; // tracks where we left off on previous run
+//global $resumeAt; // tracks where we left off on previous run
 global $programPath; $programPath = $_SERVER['REDIRECT_URL'];
-define('TESTING', 1); // use this to activate extra debugging statements (if (@TESTING==1))
+define('TESTING', 1); // use this to activate extra debugging statements (if (t\EST()))
+ini_set('max_execution_time', 0); // don't ever timeout when testing
 
 $cmdline = $_SERVER['QUERY_STRING'];
-if (strpos($cmdline, 'menu=1') or strpos($cmdline, 'restart=1')) {
+/*if (strpos($cmdline, 'menu=1') or strpos($cmdline, 'restart=1')) {
   u\deb("zapping resume cache, cmdline=$cmdline");
   cache_set('t_resume', FALSE);
   cache_set('t_messages', FALSE);
-}
+}*/
 
 $args = array();
-if ($resume = @cache_get('t_resume')->data) {
+/*if ($resume = @cache_get('t_resume')->data) {
   u\deb('extracting resume data: '.print_r($resume, 1));
   extract($resume); // q, okAll, the_menu, etc. and resumeAt
-}
+}*/
 if (!@$q) $q = $cmdline; // get query string from cache if possible
 if ($q) {
   foreach (explode('&', $q) as $one) { // gotta do it the long way, because Drupal suppresses $_POST
@@ -33,9 +34,9 @@ u\deb("top of test.php: okAll=$okAll modules=" . print_r($modules, 1));
 
 foreach($modules as $module) doModule($module);
 if (!@$the_menu) if (count($modules) > 1) report('OVERALL', $okAll, $noAll);
-u\deb("*** normal finish, zapping resume cache\n\n\n");
+/*u\deb("*** normal finish, zapping resume cache\n\n\n");
 cache_set('t_resume', FALSE); // finished normally, so no need to resume
-cache_set('t_messages', FALSE);
+cache_set('t_messages', FALSE);*/
 
 // END OF PROGRAM
 
@@ -52,7 +53,7 @@ cache_set('t_messages', FALSE);
  */
 function doModule($module) {
   global $ok, $no, $fails, $okAll, $noAll, $the_feature, $the_menu, $programPath;
-  global $base_url;
+  global $base_url, $overallResults;
   $fails = $ok = $no = 0; // results counters
 
   $moduleName = strtoupper(basename($module));
@@ -72,20 +73,29 @@ function doModule($module) {
     foreach ($features as $feature) $menu[] = testLink($feature, $module, $feature);
     insertMessage("<h1>$moduleName: $link</h1>" . join('<br>', $menu));
   } else {
+    $overallResults = array();
+    foreach (array('error', 'warning', 'status') as $type) $overallResults[$type] = array();
     foreach ($features as $feature) doTest($module, $feature);
+    foreach ($overallResults as $type => $one) foreach($one as $msg) {
+      if ($type == 'error') $msg = color('ERRS: ' . print_r($msg, 1), 'salmon');
+      \drupal_set_message($msg);
+    }
+    
     $featureLink = @$the_feature ? ' (' . testLink($feature, $module, $feature) . ')' : '';
     report($moduleName . $featureLink, $ok, $no, $module);
   }
 }  
 
 function doTest($module, $feature) {
+//  debug(compact('module','feature'));
   global $results, $user, $the_menu, $the_module, $the_feature, $the_scene, $the_variant, $resumeAt, $skipToStep;
-  global $okAll, $noAll;
+  global $okAll, $noAll, $overallResults;
   
-  if (@$resumeAt and strpos($resumeAt, "$module:$feature:") === FALSE) {
+/*  if (@$resumeAt and strpos($resumeAt, "$module:$feature:") === FALSE) {
   u\deb("skipping $module:$feature: resumeAt=$resumeAt");
     return; // not to the right feature yet
   }
+  */
   include ($feature_filename = __DIR__ . "/../$module/tests/$feature.test");
 
   $featureLink = testLink($feature, $module, $feature);
@@ -99,30 +109,28 @@ function doTest($module, $feature) {
     if (@$the_scene) if ($scene != $the_scene) continue;
     if (@$the_variant !== '') if ($variant != $the_variant) continue;
 
-    if ("$module:$feature:$one" == @$resumeAt) u\deb('resuming now'); elseif (@$resumeAt) u\deb("skipping $module:$feature:$one");
-
-    if ("$module:$feature:$one" == @$resumeAt) {
-      $resumeAt = FALSE; // don't skip any more modules, scenes, or features after this one
-    } elseif (@$resumeAt) continue; // skipping until scene where we left off
-
+//    debug("DOING $module:$feature:$one");
     u\deb("DOING $module:$feature:$one");
-    u\deb("saving resume point: $module:$feature:$one");
-    $q = $_SERVER['QUERY_STRING'];
-    $vars = compact('q', 'okAll', 'noAll', 'the_menu', 'the_module', 'the_feature', 'the_scene', 'the_variant')
-    + array('resumeAt' => "$module:$feature:$one");
-    cache_set('t_resume', $vars); // save in case we need to resume
-    
+    $saveSESSION = $_SESSION; $_SESSION = array(); // start each test with a clean slate
     $results = array('PASS!');
     $t->$one(); // run one test
-    
-    // Display results intermixed with debugging output, if any (so don't collect results before displaying)
+u\deb('after test');
+    // Display results are intermixed w debugging output, if any (so don't collect results before displaying)
     $link = testLink($one, $module, $feature, $scene, $variant);
     $results[0] .= " [$featureLink] $link";
     $results[0] = color($results[0], 'darkkhaki');
-    \drupal_set_message(join(PHP_EOL, $results));
+    drupal_set_message(join(PHP_EOL, $results));
+
+    $msgs = @$_SESSION['messages'] ?: array();
+    foreach (array('error', 'warning', 'status') as $one) {
+      foreach ((@$msgs[$one] ?: array()) as $msg) $overallResults[$one][] = $msg;
+    }
+    
+u\deb('before restore count overallResults:' . count($overallResults));
+    $_SESSION = $saveSESSION;
     u\deb("done with $module:$feature:$one resumeAt=$resumeAt skipToStep=$skipToStep");
   }
-    u\deb("done with $module:$feature resumeAt=$resumeAt skipToStep=$skipToStep");
+  u\deb("done with $module:$feature resumeAt=$resumeAt skipToStep=$skipToStep");
 }
 
 class DrupalWebTestCase {
@@ -161,6 +169,7 @@ function color($msg, $color) {
 }
 
 function insertMessage($s, $type = 'status') {
+  if (!is_string($s)) $s = print_r($s, 1);
   if (!@$_SESSION['messages'][$type]) $_SESSION['messages'][$type] = array();
   array_unshift($_SESSION['messages'][$type], $s);
 }
@@ -210,7 +219,7 @@ function gotoError($title, $errorNum = 0) {
  *   an array of filenames, qualified by path (including the initial directory $path)
  */
 function findFiles($path = '.', $pattern = '/./', $result = '') {
-  if (!($recurse = is_array($result))) $result = array();
+  if (!$recurse = is_array($result)) $result = array();
   if (!is_dir($path)) die("No features folder found for that module (path $path).");
   $dir = dir($path);
   
