@@ -1,25 +1,18 @@
 <?php
 //http://localhost/devcore/rcredits/test?module=rcredits/rsms&menu=1
+use rCredits as r; // only for saving current user
 use rCredits\Util as u;
 global $okAll, $noAll; $okAll = $noAll = 0; // overall results counters
-global $the_menu, $the_feature, $the_scene, $the_variant; // these allow for arbitrarily selective testing
-//global $resumeAt; // tracks where we left off on previous run
+global $the_menu, $the_feature, $the_div, $the_scene, $the_variant; // allows for arbitrarily selective testing
 global $programPath; $programPath = $_SERVER['REDIRECT_URL'];
 define('TESTING', 1); // use this to activate extra debugging statements (if (t\EST()))
+define('MAX_DIVLESS', 7); // maximum number of features before module gets subdivided
+define('DIV_SIZE', 6);
 ini_set('max_execution_time', 0); // don't ever timeout when testing
 
 $cmdline = $_SERVER['QUERY_STRING'];
-/*if (strpos($cmdline, 'menu=1') or strpos($cmdline, 'restart=1')) {
-  u\deb("zapping resume cache, cmdline=$cmdline");
-  cache_set('t_resume', FALSE);
-  cache_set('t_messages', FALSE);
-}*/
 
 $args = array();
-/*if ($resume = @cache_get('t_resume')->data) {
-  u\deb('extracting resume data: '.print_r($resume, 1));
-  extract($resume); // q, okAll, the_menu, etc. and resumeAt
-}*/
 if (!@$q) $q = $cmdline; // get query string from cache if possible
 if ($q) {
   foreach (explode('&', $q) as $one) { // gotta do it the long way, because Drupal suppresses $_POST
@@ -27,16 +20,17 @@ if ($q) {
     $args[$key] = $value;
   }
 }
-extract(u\just('menu module feature scene variant', $args), EXTR_PREFIX_ALL, 'the'); // overwrite resume, as specified
+extract(u\just('menu module feature div scene variant', $args), EXTR_PREFIX_ALL, 'the'); 
+global $testModule; $testModule = !@$the_feature; // testing whole module? (suppress some test output)
 //if (@$the_scene) $the_variant = 0;
-$modules = @$the_module ? array($the_module) : array('rcredits/rsms', 'rcredits/rsmart', 'rcredits/rweb'); // and admin
-u\deb("top of test.php: okAll=$okAll modules=" . print_r($modules, 1));
+$modules = @$the_module ? array($the_module) : array('rcredits/rsms', 'rcredits/rsmart', 'rcredits/rweb',  'rcredits/rcron'); // and admin
+//u\deb("top of test.php: okAll=$okAll modules=" . print_r($modules, 1));
 
 foreach($modules as $module) doModule($module);
-if (!@$the_menu) if (count($modules) > 1) report('OVERALL', $okAll, $noAll);
-/*u\deb("*** normal finish, zapping resume cache\n\n\n");
-cache_set('t_resume', FALSE); // finished normally, so no need to resume
-cache_set('t_messages', FALSE);*/
+if (!@$the_menu) {
+  if (count($modules) > 1) report('OVERALL', $okAll, $noAll);
+  insertMessage('<a href="http://localhost/devcore/rcredits/test?menu=1">Test Menu</a>');
+}
 
 // END OF PROGRAM
 
@@ -52,7 +46,7 @@ cache_set('t_messages', FALSE);*/
  * Run tests for one module
  */
 function doModule($module) {
-  global $ok, $no, $fails, $okAll, $noAll, $the_feature, $the_menu, $programPath;
+  global $ok, $no, $fails, $okAll, $noAll, $the_feature, $the_div, $the_menu, $programPath;
   global $base_url, $overallResults;
   $fails = $ok = $no = 0; // results counters
 
@@ -61,17 +55,32 @@ function doModule($module) {
   $compilerPath = "$base_url/sites/all/modules/gherkin/compile.php?module=$module";
   $compilation = file_get_contents($compilerPath); // recompile tests first
   if (strpos($compilation, 'ERROR:') !== FALSE) {
-    report($moduleName, 0, "<a href='$compilerPath'>compile error</a>", $module);
+    report($moduleName, 0, "<a href='$compilerPath'>compile error</a>", $module, $the_div);
     return;
   }
   $features = str_replace("$path/features/", '', str_replace('.feature', '', findFiles("$path/features", '/.*\.feature$/')));
-  if (@$the_feature) $features = array($the_feature);
+  $featureCount = count($features);
+  if (@$the_feature) {
+    $features = array($the_feature);
+  } elseif (@$the_div and $featureCount > MAX_DIVLESS) {
+    $features = array_slice($features, ($the_div - 1) * DIV_SIZE, DIV_SIZE);
+  }
   $link = testLink('ALL', $module);
-  
   if (@$the_menu) { // just show the choices
     $menu = array();
-    foreach ($features as $feature) $menu[] = testLink($feature, $module, $feature);
-    insertMessage("<h1>$moduleName: $link</h1>" . join('<br>', $menu));
+    $f = 1;
+    $div = 0;
+    foreach ($features as $feature) {
+      if ($featureCount > MAX_DIVLESS and $f == 1) {
+        $div++;
+        $divLink = testLink("Div #$div", $module, $div);
+        $menu[] = "<br><b style='font-size:120%; margin:0 0 0 0;'>$divLink: </b>";
+      }
+      $menu[] = testLink($feature, $module, '', $feature) . ' , ';
+      $f = $f < DIV_SIZE ? $f + 1 : 1;
+    }
+
+    insertMessage("<h1 style='margin:18px 0 -18px 0;'>$moduleName: $link</h1>" . join('', $menu));
   } else {
     $overallResults = array();
     foreach (array('error', 'warning', 'status') as $type) $overallResults[$type] = array();
@@ -81,13 +90,13 @@ function doModule($module) {
       \drupal_set_message($msg);
     }
     
-    $featureLink = @$the_feature ? ' (' . testLink($feature, $module, $feature) . ')' : '';
-    report($moduleName . $featureLink, $ok, $no, $module);
+    $featureLink = @$the_feature ? ' (' . testLink($feature, $module, '', $feature) . ')' : '';
+    report($moduleName . $featureLink, $ok, $no, $module, $the_div);
   }
 }  
 
 function doTest($module, $feature) {
-//  debug(compact('module','feature'));
+///  debug(compact('module','feature'));
   global $results, $user, $the_menu, $the_module, $the_feature, $the_scene, $the_variant, $resumeAt, $skipToStep;
   global $okAll, $noAll, $overallResults;
   
@@ -98,7 +107,7 @@ function doTest($module, $feature) {
   */
   include ($feature_filename = __DIR__ . "/../$module/tests/$feature.test");
 
-  $featureLink = testLink($feature, $module, $feature);
+  $featureLink = testLink($feature, $module, '', $feature);
   $classname = basename($module . $feature);
   $t = new $classname();
   $s = file_get_contents($feature_filename);
@@ -109,14 +118,18 @@ function doTest($module, $feature) {
     if (@$the_scene) if ($scene != $the_scene) continue;
     if (@$the_variant !== '') if ($variant != $the_variant) continue;
 
-//    debug("DOING $module:$feature:$one");
+///    debug("DOING $module:$feature:$one");
     u\deb("DOING $module:$feature:$one");
     $saveSESSION = $_SESSION; $_SESSION = array(); // start each test with a clean slate
     $results = array('PASS!');
+    
+    $mya = r\acct(); // save true account (that is running the tests), so we can restore it
     $t->$one(); // run one test
-u\deb('after test');
+    r\acct::setDefault($mya); // restore tester's account
+
+    u\deb('after test');
     // Display results are intermixed w debugging output, if any (so don't collect results before displaying)
-    $link = testLink($one, $module, $feature, $scene, $variant);
+    $link = testLink(substr($one, 4), $module, '', $feature, $scene, $variant); // drop "test" from description
     $results[0] .= " [$featureLink] $link";
     $results[0] = color($results[0], 'darkkhaki');
     drupal_set_message(join(PHP_EOL, $results));
@@ -138,6 +151,12 @@ class DrupalWebTestCase {
   function assertTrue($bool, $step, $sceneName) {
     global $results, $skipToStep, $resumeAt;
     global $ok, $no, $fails, $okAll, $noAll;
+    
+    if (r\usd::inAtom()) {
+      t\output("in atom after $step: $sceneName!");
+      while (r\usd::inAtom()) r\usd::rollback();
+      $bool = FALSE;
+    }
 
     $step = str_replace('"\\', '', $step); // for example "\user_login"
     $step = str_replace('\\', "\n     ", $step); // end of data lines
@@ -174,8 +193,9 @@ function insertMessage($s, $type = 'status') {
   array_unshift($_SESSION['messages'][$type], $s);
 }
 
-function report($moduleName, $ok, $no, $module = '') {
+function report($moduleName, $ok, $no, $module = '', $div = '') {
   $moduleName = testLink($moduleName, $module);
+  if ($div) $moduleName .= ' ' . testLink("Div #$div", $module, $div);
   if ($no) {
     if (!strpos($no, 'a href')) $no = gotoError($no); // add link unless it's already there
   } else $no = '_';
@@ -190,9 +210,14 @@ EOF;
   insertMessage($msg);
 }
 
-function testLink($description, $module, $feature = '', $scene = '', $variant = '') {
-  global $programPath;
-  return "<a href='$programPath?module=$module&feature=$feature&scene=$scene&variant=$variant&restart=1'>$description</a>";
+/**
+ * Return a link to the given module, div, feature, scene, or variant.
+ */
+function testLink($description, $module, $div = '', $feature = '', $scene = '', $variant = '') {
+  global $programPath, $the_menu;
+  $description = str_replace('_0', '', $description); // omit first variant from description
+  //$style = $the_menu ? "style='margin-left:50px;'" : '';
+  return "<a href='$programPath?module=$module&div=$div&feature=$feature&scene=$scene&variant=$variant&restart=1'>$description</a>";
 }
 
 function gotoError($title, $errorNum = 0) {
