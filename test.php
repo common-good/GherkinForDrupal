@@ -71,7 +71,8 @@ function doModule($module) {
     $f = 1;
     $div = 0;
     foreach ($features as $feature) {
-      if ($featureCount > MAX_DIVLESS and $f == 1) {
+//      if ($featureCount > MAX_DIVLESS and $f == 1) {
+      if ($f == 1) {
         $div++;
         $divLink = testLink("Div #$div", $module, $div);
         $menu[] = "<br><b style='font-size:120%; margin:0 0 0 0;'>$divLink: </b>";
