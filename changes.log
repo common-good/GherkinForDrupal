@@ -1,0 +1,28 @@
+TO DO:
+
+2014-10-30
+. always send us the whole array, which must still be rectangular. If the first row ends with a star (*), then it is keys/hdrs for the other rows
+. revised test program to be free of rcredits code
+. wrote plusMonths to handle month arithmetic (strtotime does it weird)
+
+2014-06-09
+. double quotes are now permitted in matrix arguments
+. changed matrix arguments to compile to simple arrays, not associative arrays (requires changes to most steps).
+  first array line ending with an asterisk causes the matrix to be handled as an associative array, with the starred line as keys
+
+2013-11-22
+. tests no longer ignore commas in expected numbers
+. added Skip/Resume feature
+. removed %picture feature
+. test groups always include at least one division (format looks better that way)
+
+2013-08-25
+. added delimiter highlighting and "Summary" to Notepad++ format
+. added %(), %yesterday, and %tomorrow features
+. increased range of %today+/- from 15 to 20
+. added helpful error message when multiline column count mismatches
+. made test reports more concise
+. created automatic test divisions of not more than 6 tests
+. now restores original account after running each test
+. tests now fail if usd atom is not closed out
+. improved test formatting

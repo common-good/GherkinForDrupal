@@ -14,41 +14,41 @@ Scenario: [Short name of scenario]
   Given [initial context]
   And [additional context line(s)]
   When [event occurs]
-  And [addition event(s) occur]
+  And [additional event(s) occur]
   Then [expected outcome]
   And [additional expected outcome(s)]
 # [additional description]
 
-All the "additional" lines can be multiple or omitted.
+All the "And" lines can be multiple or omitted.
 Comment lines (beginning with '#') can appear anywhere.
+
 This Gherkin compiler makes several extensions to the standard Gherkin language:
- * You can include a "Variants" section after the Feature header, consisting of a single multi-line argument
+ * A matrix argument is passed as an associative array only if the first row (showing the keys) ends with an asterisk. Otherwise it is passed as a plain array.
+ * You can include a "Variants" section after the Feature header, consisting of a single matrix argument
    whose first line is a list of values to be replaced and each subsequent line is a list of replacements.
    The whole series of tests will be run as-is, then with each list of replacements.
-   You can use double quotes in Variant lines, without having to use doubled single quotes.
  * You can include a special first scenario headed "Setup:" instead of "Scenario:" that will be run
    at the start of each scenario to set things up. Typically this will include "Given" (and "And" or "When") statements,
    but you can also include "Then"s (and "And"s) to test the setup.
- * In addition to numbers and double-quoted strings as function arguments, you can have punctuated numbers
-   like 222-333-4444 or $34,526.87 or +1800.222.3333 or #43-2-1111.
-   Dollar signs and commas are ignored. Everything else is included as part of the argument.
  * You can also use magic "%" arguments like the following:
 	   %random (or %whatever) - a random-length, random string of characters without double quotes or percents
 	   %random3 (or %whatever3) - same as above. The string will stay the same for a whole scenario. Use any integer up to 3.
 	   %phone5 (or %number) - a random US phone number like +12223334444 (only "number" is implemented, not "phone")
 	   %today - today's date, formatted 
-	   %today-15d - 15 days ago
-	   %today-15w - 15 weeks ago
-	   %today-15m - 15 months ago
-	   %today+15d - 15 days from now (not implemented)
-	   %picture1 - a random picture (will be saved in path $picturePath, so be sure to create that global)
+	   %today-20d - 20 days ago (any integer 1 to 20)
+	   %today-20w - 20 weeks ago
+	   %today-20m - 20 months ago
+	   %today+20d - 20 days from now
+     same for %yesterday, %tomorrow, %yesterday+20d, etc.
 	   %CONSTANT_NAME - any defined constant (document any use of these, in the feature header, unless they self-explain)
+     %(expression) - the result of the expression
     To adjust the magic constants $subs array, create a file in your program directory called "usualSubs.inc".
 	For example, after the <?php tag, your usualSubs.inc file could say: 
 	  $fruits = array('apple', 'banana', 'cherry');
 	  $subs['%fruit'] = $fruits[random(0, 2)];
-	Magic "%" arguments also work within other arguments, including multi-line arguments
+	Magic "%" arguments also work within other arguments, including matrix arguments
   * Any argument can be an array. Use "=>" to indicate a subvalue (for example a selected option) and separate subvalues with commas, like in an array definition, without the quotes. For example "first=>this,second=>that" produces an argument whose value is: array('first' => 'this', 'second' => 'that').
+  * Use the words "Skip" and "Resume" before Scenarios, to temporarily disable certain tests
 
 _____________________________________________________________________________________
 

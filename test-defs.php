@@ -17,14 +17,17 @@ function gherkinGuts($statement, $type) {
   if($type == 'Then_') $testOnly = TRUE;
 
   $argPatterns = '"(.*?)"|([\-\+]?[0-9]+(?:[\.\,\-][0-9]+)*)';
-  $function = lcfirst(preg_replace("/%[A-Z][A-Z0-9]*|$argPatterns|[^A-Z]/ims", '', ucwords($statement)));
+  $function = lcfirst(preg_replace("/%[A-Z][A-Z0-9_]*|$argPatterns|[^A-Z]/ims", '', ucwords($statement)));
   if (@$skipToStep) {
     if ($skipToStep != $function) return NULL;
     $skipToStep = NULL;
 //    return TRUE;
   }
   $statement = strtr(getConstants($statement), $sceneTest->subs); // getConstants first, in case random args have "@"
+  $statement = preg_replace('/%\((.*?)\) /e', '\1', $statement); // evaluate %(expression) (after most subs)
+  print_r($statement);
   $statement = cleanMultilineArg($statement);
+  print_r($statement);
 
   preg_match_all("/$argPatterns/ms", $statement, $matches);
   $args = otherFixes(multilineCheck($matches[0])); // phpbug: $matches[1] has null for numeric args (the check removes quotes)
@@ -45,13 +48,12 @@ function gherkinGuts($statement, $type) {
 }
 
 /**
- * Remove quotes around standard % string subs in multiline args.
+ * Remove quotes around standard % string subs in multiline args (necessary?) and add a quote at the end.
  */
 function cleanMultilineArg($statement) {
-  $mark = 'DATA\\';
-  $lines = explode($mark, $statement, 2);
-  if ($arg = @$lines[1]) {
-    return $lines[0] . $mark . str_replace('"', '', $arg) . '"'; 
+  if (preg_match('/(ARRAY|ASSOC)\\\\/', $statement, $match, PREG_OFFSET_CAPTURE)) {
+    list ($type, $i) = $match[1];
+    return substr($statement, 0, $i) . $type . str_replace('"', '', substr($statement, $i + strlen($type))) . '"'; 
   } else return $statement;
 }
 
@@ -59,13 +61,13 @@ function cleanMultilineArg($statement) {
  * Random String Generator
  *
  * int $len: length of string to generate (0 = random 1->50)
- * string $type: ?=any 9=digits
+ * string $type: ?=any printable 9=digits A=letters
  * return semi-random string with no single or double quotes in it (but maybe spaces)
  */
 function randomString($len = 0, $type = '?'){
   if (!$len) $len = mt_rand(1, 50);
 
- 	$symbol = '-_~=+;!@#%^&*(){}[]<>,.?\' '; // no double quotes or vertical bars (messes up args)
+ 	$symbol = '-_~=+;!@#%^&*(){}[]<>.?\' '; // no double quotes, commas, or vertical bars (messes up args)
   $upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
   $lower = 'abcdefghijklmnopqrstuvwxwz';
   $digits = '0123456789';
@@ -104,22 +106,22 @@ function usualSubs() {
     $subs[$key] = $r;
   }
   foreach (array(20, 32) as $i) $subs["%whatever$i"] = '"' . randomString($i) . '"';
-  
-  for ($i = 15; $i > 0; $i--) { // set up past dates highest first, eg to avoid missing the "5" in %today-15
-    $subs["%today-{$i}d"] = strftime($date_format, strtotime("-$i days"));
-    $subs["%today-{$i}w"] = strftime($date_format, strtotime("-$i weeks"));
-    $subs["%today-{$i}m"] = strftime($date_format, strtotime("-$i months"));
-  }
-  $subs['%today'] = strftime($date_format, time()); // must be last
- 
-  for ($i = 1; $i > 0; $i--) {
-    if (!file_exists($dest = "$picturePath/picture$i.jpg")) { // destination file
-      $pic = file_get_contents('http://lorempixel.com/400/200'); // get random picture
-      file_put_contents($dest, $pic);
-    }
-    $subs["%picture$i"] = "\"picture$i\"";
-  }
 
+  for ($i = 20; $i > 0; $i--) { // set up high numbers first, eg to avoid missing the "5" in %today-15
+    foreach (array('-', '+') as $sign) {
+      $subs["%today$sign{$i}d"] = strtotime("$sign$i days");
+      $subs["%today$sign{$i}w"] = strtotime("$sign$i weeks");
+      $subs["%today$sign{$i}m"] = plusMonths("$sign$i");
+      if ($sign == '-')
+      $subs["%today$sign{$i}y"] = strtotime("$sign$i years");
+      $subs["%yesterday$sign{$i}m"] = plusMonths("$sign$i", strtotime('-1 day'));
+      $subs["%tomorrow$sign{$i}m"] = plusMonths("$sign$i", strtotime('+1 day'));
+    }
+  }
+  $subs['%today'] = time(); // must be after loop
+  $subs['%yesterday'] = strtotime('-1 day');
+  $subs['%tomorrow'] = strtotime('+1 day');
+ 
   if (function_exists('extraSubs')) extraSubs($subs); // defined in .steps -- a chance to add or replace the usual subs
 
   return $subs;
@@ -134,16 +136,30 @@ function usualSubs() {
  * @return $args, possibly with the final argument replaced by an array
  */
 function multilineCheck($args) {
+  global $sceneTest;
   for($i = 0; $i < count($args); $i++) $args[$i] = squeeze($args[$i], '"');
-  if (substr($last = end($args), 0, 4) != 'DATA') return $args;
+  $last = end($args);
+  if (!preg_match('/^(ARRAY|ASSOC)/', $last, $match)) return $args;
+  $assoc = ($match[1] == 'ASSOC');
   $data = explode(GHERKIN_EOL, preg_replace('/ *\| */m', '|', $last));
-  array_shift($data);
-  $keys = explode('|', squeeze(array_shift($data), '|'));
-  $result = array();
+  array_shift($data); // discard the matrix arg identifier
+//  $keys = explode('|', squeeze(array_shift($data), '|'));
   foreach ($data as $line) {
     if (function_exists('multiline_tweak')) multiline_tweak($line);
-    $result[] = array_combine($keys, explode('|', squeeze($line, '|')));
+    $values = explode('|', squeeze($line, '|'));
+    $lineCols = count($values);
+    $keyCols = @$ray ? count($ray[0]) : $lineCols;
+    if ($lineCols != $keyCols) {
+      die("bad multiline field count in $sceneTest->sceneName:\nline ($lineCols) = " . print_r($values, 1) . "\nfirst ($keyCols) = " . print_r($ray[0], 1));
+    }
+    //$result[] = array_combine($keys, $values);
+    $ray[] = $values;
   }
+  if ($assoc and count($ray) > 1) { // interpret the array as an associative array: first line is the keys
+    $keys = array_shift($ray);
+    foreach ($ray as $values) $result[] = array_combine($keys, $values);
+  } else $result = $ray;
+  
   $args[count($args) - 1] = $result;
   return $args;
 }
@@ -192,7 +208,7 @@ function otherFixes($args) {
   foreach ($args as $key => $one) {
     if (!is_array($one)) {
       $one = str_replace("''", '"', $one); // lastly, interpret double apostrophes as double quotes
-      if (is_numeric($without = str_replace(',', '', $one))) $one = $without; // remove commas from numbers
+      // NO! if (is_numeric($without = str_replace(',', '', $one))) $one = $without; // remove commas from numbers
       if (strpos($one, '=>')) { // arg is an array, parse it
         $new = array();
         foreach (explode(',', $one) as $subvalue) {
@@ -206,4 +222,19 @@ function otherFixes($args) {
     } else $args[$key] = otherFixes($one);
   }
   return $args;
+}
+
+/**
+ * Return the time with some number of months added (or subtracted)
+ * @param int $months: how many months to add (may be negative)
+ * @param int $time: starting time (defaults to current time)
+ * @return int: the resulting time, same day of month if possible, otherwise last day of month.
+ * strtotime() should do this, but it actually returns March 2nd for strtotime('-1 month', strtotime('3/30/2014'))
+ */
+function plusMonths($months, $time = '') {
+  if ($time === '') $time = time();
+  if ($months > 0) $months = '+' . $months;
+  $res = strtotime($months . 'months', $time);
+  $day = date('d', $res);
+  return $day == date('d', $time) ? $res : strtotime("-$day", $res); // use last day of month if same day fails
 }

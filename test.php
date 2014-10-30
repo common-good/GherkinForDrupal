@@ -1,52 +1,48 @@
 <?php
-//http://localhost/devcore/rcredits/test?module=rcredits/rsms&menu=1
-use rCredits as r; // only for saving current user
-use rCredits\Util as u;
+/**
+ * @file
+ * Drupal Acceptance Test Program
+ * Call as include file or stand-alone:
+ *
+ * INCLUDE FILE (parameters set before include)
+ * @param array $modules: list of module paths to display features for (relative to this file's parent)
+ *
+ * STAND-ALONE (query parameters in URL)
+ * @param string $module: path of test module to run (relative to this file's parent)
+ * @param string $feature: which specific feature within that module (defaults to all)
+ * @param string $scene: which specific scenario within that feature (defaults to all)
+ * @param int $variant: which specific variant within that scene (defaults to all)
+ */
 global $okAll, $noAll; $okAll = $noAll = 0; // overall results counters
-global $the_menu, $the_feature, $the_div, $the_scene, $the_variant; // allows for arbitrarily selective testing
+global $the_feature, $the_div, $the_scene, $the_variant; // allows for arbitrarily selective testing
 global $programPath; $programPath = $_SERVER['REDIRECT_URL'];
 define('TESTING', 1); // use this to activate extra debugging statements (if (t\EST()))
 define('MAX_DIVLESS', 7); // maximum number of features before module gets subdivided
 define('DIV_SIZE', 6);
 ini_set('max_execution_time', 0); // don't ever timeout when testing
 
-$cmdline = $_SERVER['QUERY_STRING'];
-
-$args = array();
-if (!@$q) $q = $cmdline; // get query string from cache if possible
-if ($q) {
-  foreach (explode('&', $q) as $one) { // gotta do it the long way, because Drupal suppresses $_POST
-    list ($key, $value) = explode('=', $one);
-    $args[$key] = $value;
-  }
-}
-extract(u\just('menu module feature div scene variant', $args), EXTR_PREFIX_ALL, 'the'); 
+parse_str($_SERVER['QUERY_STRING'], $args);
+extract($args, EXTR_PREFIX_ALL, 'the'); 
 global $testModule; $testModule = !@$the_feature; // testing whole module? (suppress some test output)
 //if (@$the_scene) $the_variant = 0;
-$modules = @$the_module ? array($the_module) : array('rcredits/rsms', 'rcredits/rsmart', 'rcredits/rweb',  'rcredits/rcron'); // and admin
+if (@$the_module) $modules = explode(',', $the_module);
 //u\deb("top of test.php: okAll=$okAll modules=" . print_r($modules, 1));
 
-foreach($modules as $module) doModule($module);
-if (!@$the_menu) {
+foreach($modules as $module) doModule($module, $menu = !@$args);
+if (!$menu) {
   if (count($modules) > 1) report('OVERALL', $okAll, $noAll);
-  insertMessage('<a href="http://localhost/devcore/rcredits/test?menu=1">Test Menu</a>');
+  insertMessage("<a href=\"sadmin/tests\">Test Menu</a>");
 }
 
 // END OF PROGRAM
 
-// SMS: OpenAnAccountForTheCaller AbbreviationsWork ExchangeForCash GetHelp GetInformation Transact Undo OfferToExchangeUSDollarsForRCredits
-// Smart: Startup IdentifyQR Transact UndoCompleted UndoPending UndoAttack Insufficient Change
-// Web: Signup
-
-//  $features = array('UndoPending'); // uncomment to run just one feature (test set)
-//  $the_scene = 'testTheCallerAsksToPayAMemberId'; // uncomment to run just one test scenario
-//  $the_variant = 0; // uncomment to focus on a single variant (usually 0)
-
 /**
  * Run tests for one module
+ * @param string $module: relative path of module to run
+ * @param bool $menu: show just the menu
  */
-function doModule($module) {
-  global $ok, $no, $fails, $okAll, $noAll, $the_feature, $the_div, $the_menu, $programPath;
+function doModule($module, $menu) {
+  global $ok, $no, $fails, $okAll, $noAll, $the_feature, $the_div, $programPath;
   global $base_url, $overallResults;
   $fails = $ok = $no = 0; // results counters
 
@@ -66,7 +62,7 @@ function doModule($module) {
     $features = array_slice($features, ($the_div - 1) * DIV_SIZE, DIV_SIZE);
   }
   $link = testLink('ALL', $module);
-  if (@$the_menu) { // just show the choices
+  if (@$menu) { // just show the choices
     $menu = array();
     $f = 1;
     $div = 0;
@@ -98,7 +94,7 @@ function doModule($module) {
 
 function doTest($module, $feature) {
 ///  debug(compact('module','feature'));
-  global $results, $user, $the_menu, $the_module, $the_feature, $the_scene, $the_variant, $resumeAt, $skipToStep;
+  global $results, $user, $the_feature, $the_scene, $the_variant, $resumeAt, $skipToStep;
   global $okAll, $noAll, $overallResults;
   
 /*  if (@$resumeAt and strpos($resumeAt, "$module:$feature:") === FALSE) {
@@ -110,6 +106,7 @@ function doTest($module, $feature) {
 
   $featureLink = testLink($feature, $module, '', $feature);
   $classname = basename($module . $feature);
+  print_r(compact('module','feature'));
   $t = new $classname();
   $s = file_get_contents($feature_filename);
   preg_match_all('/function (test.*?)\(/sm', $s, $matches);
@@ -120,15 +117,16 @@ function doTest($module, $feature) {
     if (@$the_variant !== '') if ($variant != $the_variant) continue;
 
 ///    debug("DOING $module:$feature:$one");
-    u\deb("DOING $module:$feature:$one");
+    //u\deb("DOING $module:$feature:$one");
     $saveSESSION = $_SESSION; $_SESSION = array(); // start each test with a clean slate
     $results = array('PASS!');
-    
+/*    
     $mya = r\acct(); // save true account (that is running the tests), so we can restore it
     $t->$one(); // run one test
     r\acct::setDefault($mya); // restore tester's account
-
-    u\deb('after test');
+*/
+    $t->$one(); // run one test
+    //u\deb('after test');
     // Display results are intermixed w debugging output, if any (so don't collect results before displaying)
     $link = testLink(substr($one, 4), $module, '', $feature, $scene, $variant); // drop "test" from description
     $results[0] .= " [$featureLink] $link";
@@ -140,11 +138,11 @@ function doTest($module, $feature) {
       foreach ((@$msgs[$one] ?: array()) as $msg) $overallResults[$one][] = $msg;
     }
     
-u\deb('before restore count overallResults:' . count($overallResults));
+//u\deb('before restore count overallResults:' . count($overallResults));
     $_SESSION = $saveSESSION;
-    u\deb("done with $module:$feature:$one resumeAt=$resumeAt skipToStep=$skipToStep");
+    //u\deb("done with $module:$feature:$one resumeAt=$resumeAt skipToStep=$skipToStep");
   }
-  u\deb("done with $module:$feature resumeAt=$resumeAt skipToStep=$skipToStep");
+  //u\deb("done with $module:$feature resumeAt=$resumeAt skipToStep=$skipToStep");
 }
 
 class DrupalWebTestCase {
@@ -152,19 +150,14 @@ class DrupalWebTestCase {
   function assertTrue($bool, $step, $sceneName) {
     global $results, $skipToStep, $resumeAt;
     global $ok, $no, $fails, $okAll, $noAll;
-    
-    if (r\usd::inAtom()) {
-      t\output("in atom after $step: $sceneName!");
-      while (r\usd::inAtom()) r\usd::rollback();
-      $bool = FALSE;
-    }
 
+    $step = htmlspecialchars($step); // make sure it displays properly
     $step = str_replace('"\\', '', $step); // for example "\user_login"
     $step = str_replace('\\', "\n     ", $step); // end of data lines
     $step = str_replace("''", '"', $step); // convention in .feature files
 
     if (@$skipToStep) {
-        u\deb("SKIPPING scene=$sceneName step=$step resumeAt=$resumeAt skipToStep=$skipToStep");
+        //u\deb("SKIPPING scene=$sceneName step=$step resumeAt=$resumeAt skipToStep=$skipToStep");
       return;
     }
 
@@ -215,9 +208,8 @@ EOF;
  * Return a link to the given module, div, feature, scene, or variant.
  */
 function testLink($description, $module, $div = '', $feature = '', $scene = '', $variant = '') {
-  global $programPath, $the_menu;
+  global $programPath;
   $description = str_replace('_0', '', $description); // omit first variant from description
-  //$style = $the_menu ? "style='margin-left:50px;'" : '';
   return "<a href='$programPath?module=$module&div=$div&feature=$feature&scene=$scene&variant=$variant&restart=1'>$description</a>";
 }
 

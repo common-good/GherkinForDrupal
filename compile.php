@@ -20,17 +20,17 @@ if (count($flnms) > 1) error('More than one .module file found in that folder.')
 
 //$MODULE = str_replace('.module', '', basename($flnms[0]));
 $MODULE = basename(dirname($flnms[0]));
-$test_dir = "$path/tests";
-if (!file_exists($test_dir)) mkdir($test_dir);
+$testDir = "$path/tests";
+if (!file_exists($testDir)) mkdir($testDir);
 
-$info_filename = "$path/$MODULE.info";
-$info = @file_get_contents($info_filename);
+$infoFilename = "$path/$MODULE.info";
+$info = @file_get_contents($infoFilename);
 
-$steps_header_filename = './steps-header.php';
-$steps_header = file_get_contents($steps_header_filename);
+$stepsHeaderFilename = './steps-header.php';
+$stepsHeader = file_get_contents($stepsHeaderFilename);
 
-$steps_filename = "$path/$MODULE.steps";
-$steps_text = file_exists($steps_filename) ? file_get_contents($steps_filename) : $steps_header;
+$stepsFilename = "$path/$MODULE.steps";
+$stepsText = file_exists($stepsFilename) ? file_get_contents($stepsFilename) : $stepsHeader;
 
 /** $steps array
  *
@@ -38,49 +38,49 @@ $steps_text = file_exists($steps_filename) ? file_get_contents($steps_filename) 
  * Each step is in turn an associative array:
  *   'original' is "new", "changed", or the original function header from the steps file
  *   'english' is the english language description of the step
- *   'to_replace' is the text to replace in the steps file when the callers change: from the first caller through the function name
+ *   'toReplace' is the text to replace in the steps file when the callers change: from the first caller through the function name
  *   'callers' array is the list of tests that use this specific step function
  *   'arg_count' is the number of arguments (for new steps only)
  */
-$steps = getSteps($steps_text); // global
+$steps = getSteps($stepsText); // global
 
 $features = findFiles("$path/features", '/\.feature$/', FALSE);
 
-foreach ($features as $feature_filename) {
-  $test_filename = str_replace('features/', 'tests/', str_replace('.feature', '.test', $feature_filename));
-  $file_line = str_replace("$path/", '', "files[] = $test_filename\n");
+foreach ($features as $featureFilename) {
+  $testFilename = str_replace('features/', 'tests/', str_replace('.feature', '.test', $featureFilename));
+  $file_line = str_replace("$path/", '', "files[] = $testFilename\n");
   if ($info) if (strpos($info, $file_line) === FALSE) $info .= $file_line;
-  $test_data = do_feature($feature_filename, $steps);
-  $test_data['MODULE'] = $MODULE;
+  $testData = do_feature($featureFilename, $steps);
+  $testData['MODULE'] = $MODULE;
   $test = file_get_contents('test-template.php');
-  $test = strtr2($test, $test_data);
-  file_put_contents($test_filename, $test);
-  echo "Created: $test_filename<br>";
+  $test = strtr2($test, $testData);
+  file_put_contents($testFilename, $test);
+  echo "Created: $testFilename<br>";
 }
 
 //print_r($steps); die();
 foreach ($steps as $functionName => $step) {
-  extract($step); // original, english, to_replace, callers, TMB, functionName
-  $new_callers = replacement($callers, $TMB, $functionName); // (replacement includes function's opening parenthesis)
+  extract($step); // original, english, toReplace, callers, TMB, functionName
+  $newCallers = replacement($callers, $TMB, $functionName); // (replacement includes function's opening parenthesis)
   if ($original == 'new') {
-    for ($arg_list = '', $i = 0; $i < $arg_count; $i++) {
-      $arg_list .= ($arg_list ? ', ' : '') . '$arg' . ($i + 1);
+    for ($argList = '', $i = 0; $i < $arg_count; $i++) {
+      $argList .= ($argList ? ', ' : '') . '$arg' . ($i + 1);
     }
-    $steps_text .= "\n" // do not use <<<EOF here, because it results in extraneous EOLs
+    $stepsText .= "\n" // do not use <<<EOF here, because it results in extraneous EOLs
     . "/**\n"
     . " * $english\n"
     . " *\n"
-    . " * in: {$new_callers}$arg_list) {\n"
+    . " * in: {$newCallers}$argList) {\n"
     . "  global \$testOnly;\n"
     . "  todo;\n"
     . "}\n";
-  } else $steps_text = str_replace($to_replace, $new_callers, $steps_text);
+  } else $stepsText = str_replace($toReplace, $newCallers, $stepsText);
 }
 
-file_put_contents($steps_filename, $steps_text);
-if ($info) file_put_contents($info_filename, $info);
+file_put_contents($stepsFilename, $stepsText);
+if ($info) file_put_contents($infoFilename, $info);
 
-echo "<br>Updated $steps_filename<br>Done. " . date('g:ia');
+echo "<br>Updated $stepsFilename<br>Done. " . date('g:ia');
 $caller = @$_SERVER['HTTP_REFERER'];
 if (@$_GET['return'] and $caller) echo <<<EOF
   <script>
@@ -96,7 +96,7 @@ EOF;
  *
  * Get the specific parameters for the feature's tests
  *
- * @param string $feature_filename
+ * @param string $featureFilename
  *   feature path and filename relative to module
  *
  * @param array $steps (by reference)
@@ -110,17 +110,18 @@ EOF;
  *   FEATURE_HEADER: standard Gherkin feature header, formatted as a comment
  *   TESTS: all the tests and steps
  */
-function do_feature($feature_filename) {
-  global $first_scenario_only, $argPatterns, $FEATURE_NAME, $FEATURE_LONGNAME, $GHERKIN_PATH;
-  global $steps, $lead;     
-  $GROUP = basename(dirname(dirname($feature_filename)));
-  $FEATURE_NAME = str_replace('.feature', '', basename($feature_filename));
+function do_feature($featureFilename) {
+  global $firstScenarioOnly, $argPatterns, $FEATURE_NAME, $FEATURE_LONGNAME, $GHERKIN_PATH;
+  global $steps, $lead, $skipping;     
+  $GROUP = basename(dirname(dirname($featureFilename)));
+  $FEATURE_NAME = str_replace('.feature', '', basename($featureFilename));
   $FEATURE_LONGNAME = $FEATURE_NAME; // default English description of feature, in case it's missing from feature file
   $FEATURE_HEADER = '';
   $TESTS = '';
   $SETUP_LINES = '';
- 
-  $lines = explode("\n", file_get_contents($feature_filename));
+  $skipping = FALSE;
+  
+  $lines = explode("\n", file_get_contents($featureFilename));
 
   // Parse into sections and scenarios
   $section_headers = explode(' ', 'Feature Variants Setup Scenario');
@@ -134,7 +135,11 @@ function do_feature($feature_filename) {
     $word1 = $word1_original = $any ? $matches[1] : '';
     $tail = trim(substr($line, strlen($word1) + 1));
 
-    if(in_array($word1, $section_headers)) {
+    if ($word1 == 'Skip' or $word1 == 'Resume') {
+      $skipping = ($word1 == 'Skip');
+    } elseif (@$skipping) {
+      continue;
+    } elseif (in_array($word1, $section_headers)) {
       $state = $word1;
       switch ($word1) {
         case 'Feature':
@@ -250,8 +255,8 @@ function findFiles($path = '.', $pattern = '/./', $result = '') {
  * Given the text of the steps file, return an array of steps (see $steps)
  *
  */
-function getSteps($steps_text) {
-  $stepKeys = ray('original,english,to_replace,callers,functionName');
+function getSteps($stepsText) {
+  $stepKeys = ray('original,english,toReplace,callers,functionName');
   $pattern = ''
   . '^/\*\*$\s'
   . '^ \* ([^\*]*?)$\s'
@@ -259,7 +264,7 @@ function getSteps($steps_text) {
   . '^ \* in: ((.*?)$\s'
   . '^ \*/$\s'
   . '^function (.*?)\()';
-  preg_match_all("~$pattern~ms", $steps_text, $matches, PREG_SET_ORDER);
+  preg_match_all("~$pattern~ms", $stepsText, $matches, PREG_SET_ORDER);
   $steps = array();
   foreach ($matches as $step) {
     $step = array_combine($stepKeys, $step);
@@ -277,33 +282,40 @@ function getSteps($steps_text) {
  * (guaranteed to be unique for each step)
  */
 function replacement($callers, $TMB, $functionName) {
-  foreach ($callers as $key => $func) $callers[$key] .= ' ' . $TMB[$func];
+  foreach ($callers as $key => $func) $callers[$key] = $TMB[$func] . ' ' . $callers[$key];
   $callers = join("\n *     ", $callers);
   return "$callers\n */\nfunction $functionName(";
 }
 
 /**
- * Multiline Argument
- *
- * See if the next few lines represent data records using the syntax:
- *   | field1 | field2 | field3 |
+ * See if the next few lines represent a matrix argument using the following syntax, and handle it:
  *   | a1     | b1     | c1     |
  *   | a2     | b2     | c2     |
+ *   | a3     | b3     | c3     |
+ * Any one or more spaces next to vertical bars are ignored.
+ * If the first line has a star immediately after the final bar, the matrix is treated as an associative array.
  * 
  * @param array $lines: the remaining lines of the feature file
- *
- * @return
- *   the additional lines, if any, to add to the first
- *   $lines (implicit) the remaing lines of the feature file
+ *                      (RETURNED IMPLICIT) the remaining lines of the feature file, after handling the arg
+ * @return the matrix lines (empty if this is not a matrix argument)
  */
-function multiline_arg(&$lines) {
+function matrixArg(&$lines) {
   global $gEOL;
+  
+  $type = 'ARRAY';
   $result = '';
   while (substr(trim(@$lines[0]), 0, 1) == '|') {
-    $line = str_replace("'", "\\'", trim(array_shift($lines)));
+    $line = trim(array_shift($lines));
+    if (!$result and substr($line, -1, 1) == '*') {
+      $line = trim(substr($line, 0, strlen($line) - 1));
+      $type = 'ASSOC';
+    }
+    //if (strpos($line, '"') !== FALSE) error('Use two single quotes in a matrix argument, to simulate a double quote.');
+    $line = str_replace('"', "''", $line); // this gets changed back in otherFixes() in test-defs.php
+    $line = str_replace("'", "\\'", $line);
     $result .= "'\n    . '$gEOL$line";
   }
-  return $result ? " \"DATA$result\"" : '';
+  return $result ? " \"$type$result\"" : '';
 }
 
 function newStepFunction($original, $testFunctionQualified, $english, $isThen, $tail) {
@@ -317,18 +329,18 @@ function newStepFunction($original, $testFunctionQualified, $english, $isThen, $
   return compact(ray('original,english,callers,TMB,arg_count'));
 }
 
-function fixStepFunction($funcArray, $testFunction, $testFunctionQualified, $english, $isThen, $tail, $err_args) {
+function fixStepFunction($funcArray, $testFunction, $testFunctionQualified, $english, $isThen, $tail, $errArgs) {
   if (!$funcArray) return newStepFunction('new', $testFunctionQualified, $english, $isThen, $tail);
   
   if(($old_english = @$funcArray['english']) != $english) error(
-    "<br>WARNING: You tried to redefine step function \"!step_function\". "
+    "<br>WARNING: You tried to redefine step function \"!stepFunction\". "
     . "Delete the old one first.<br>\n"
     . "Old: $old_english<br>\n"
     . "New: $english<br>\n"
     . "  in Feature: !FEATURE_LONGNAME<br>\n"
     . "  in Scenario: $testFunction<br>\n"
     . "  in Step: !line<br>\n", 
-    $err_args
+    $errArgs
   );
   
   if ($funcArray['original'] != 'new') $funcArray['original'] = 'changed';
@@ -359,7 +371,7 @@ function expect($bool, $message) {
 }
 
 function parseScenario($testFunction, $lines) { 
-  global $argPatterns, $FEATURE_NAME, $FEATURE_LONGNAME, $steps, $lead;     
+  global $argPatterns, $FEATURE_NAME, $FEATURE_LONGNAME, $steps, $lead, $skipping;
   $result = $state = '';
 
   while (!is_null($line = array_shift($lines))) {
@@ -370,17 +382,19 @@ function parseScenario($testFunction, $lines) {
       $isThen = ($word1 == 'Then' or ($word1 == 'And' and $state == 'Then'));
       if ($word1 == 'And') $word1 = 'And__'; else $state = $word1;
       if ($word1 == 'When' or $word1 == 'Then') $word1 .= '_';
-      $multiline_arg = multiline_arg($lines);
-      $tail_escaped = str_replace("'", "\\'", $tail) . $multiline_arg;
-      $tail .= str_replace("\\'", "'", $multiline_arg);
-//      print_r(compact('multiline_arg','tail_escaped','tail'));
-      $result .= "$lead  $word1('$tail_escaped');\n";
+      $matrixArg = matrixArg($lines);
+      $tailEscaped = str_replace("'", "\\'", $tail) . $matrixArg;
+      $tail .= str_replace("\\'", "'", $matrixArg);
+//      print_r(compact('matrixArg','tailEscaped','tail'));
+      $result .= "$lead  $word1('$tailEscaped');\n";
       $english = preg_replace("/$argPatterns/ms", '(ARG)', $tail);
-      $step_function = lcfirst(preg_replace("/$argPatterns|[^A-Z]/msi", '', ucwords($tail)));
+      $stepFunction = lcfirst(preg_replace("/$argPatterns|[^A-Z]/msi", '', ucwords($tail)));
 
       $testFunctionQualified = str_replace('- test', '', str_replace('- feature', '', "$FEATURE_NAME - $testFunction"));
-      $err_args = compact(ray('step_function,FEATURE_LONGNAME,line')); // for error reporting, just in case 
-      $steps[$step_function] = fixStepFunction(@$steps[$step_function], $testFunction, $testFunctionQualified, $english, $isThen, $tail, $err_args);
+      $errArgs = compact(ray('stepFunction,FEATURE_LONGNAME,line')); // for error reporting, just in case 
+      $steps[$stepFunction] = fixStepFunction(@$steps[$stepFunction], $testFunction, $testFunctionQualified, $english, $isThen, $tail, $errArgs);
+    } elseif ($word1 == 'Skip' or $word1 == 'Resume') {
+      $skipping = ($word1 == 'Skip'); // might call And skip 
     }
   }
  
