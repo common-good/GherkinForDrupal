@@ -24,10 +24,11 @@ function gherkinGuts($statement, $type) {
 //    return TRUE;
   }
   $statement = strtr(getConstants($statement), $sceneTest->subs); // getConstants first, in case random args have "@"
-  $statement = preg_replace('/%\((.*?)\) /e', '\1', $statement); // evaluate %(expression) (after most subs)
-  print_r($statement);
+//  $statement = preg_replace('/%\((.*?)\) /e', '\1', $statement); // evaluate %(expression) (after most subs)
+  $statement = preg_replace_callback('/%\((.*?)\) /', function($m) {return eval("return $m[1];");}, $statement); // evaluate %(expression) (after most subs)
+///  print_r($statement);
   $statement = cleanMultilineArg($statement);
-  print_r($statement);
+///  print_r($statement);
 
   preg_match_all("/$argPatterns/ms", $statement, $matches);
   $args = otherFixes(multilineCheck($matches[0])); // phpbug: $matches[1] has null for numeric args (the check removes quotes)
@@ -78,7 +79,8 @@ function randomString($len = 0, $type = '?'){
   
   for($s = ''; $len > 0; $len--) $s .= $chars{mt_rand(0, strlen($chars)-1)};
   $s = str_replace('=>', '->', $s); // don't let it look like a sub-argument
-  $s = preg_replace('/[%@][A-Z]/e', 'strtolower("$0")', $s); // percent and ampersand occasionally look like substitution parameters
+//  $s0 = preg_replace('/[%@][A-Z]/e', 'strtolower("$0")', $s); // percent and ampersand occasionally look like substitution parameters
+  $s = preg_replace_callback('/[%@][A-Z]/', function($m) {return strtolower($m[0]);}, $s); // percent and ampersand occasionally look like substitution parameters
   return($s); //  return str_shuffle($s); ?
 }
 

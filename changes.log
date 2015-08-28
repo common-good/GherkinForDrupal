@@ -1,5 +1,8 @@
 TO DO:
 
+2015-08-28
+. fixed function names in steps-header.php
+
 2014-10-30
 . always send us the whole array, which must still be rectangular. If the first row ends with a star (*), then it is keys/hdrs for the other rows
 . revised test program to be free of rcredits code

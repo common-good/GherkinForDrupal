@@ -1,4 +1,8 @@
 <?php
+/**
+ * @file
+ * Standalone Gherkin multi-line test program
+ */
 $SHOWERRORS = true;
 error_reporting($SHOWERRORS ? E_ALL : 0);
 ini_set('display_errors', $SHOWERRORS);

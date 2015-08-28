@@ -20,14 +20,14 @@
  * Add additional setup for any or all features or tests
  * The feature object contains information about the current feature and test, etc.
  */
-function extra_setup($feature) {
+function extraSetup($feature) {
 // if ($feature->SHORT_NAME == 'Zot' and $feature->currentTest == 'ZotifyIt' and $feature->variant == 3) echo 'checkpoint';
 }
 
 /**
  * Modify the standard list of magic substitutions (the %parameters)
  */
-function extra_subs(&$subs) {
+function extraSubs(&$subs) {
 //  $subs['%replace_this'] = 'with this';
 }
 

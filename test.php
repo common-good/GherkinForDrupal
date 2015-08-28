@@ -106,7 +106,7 @@ function doTest($module, $feature) {
 
   $featureLink = testLink($feature, $module, '', $feature);
   $classname = basename($module . $feature);
-  print_r(compact('module','feature'));
+///  print_r(compact('module','feature'));
   $t = new $classname();
   $s = file_get_contents($feature_filename);
   preg_match_all('/function (test.*?)\(/sm', $s, $matches);
