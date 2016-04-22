@@ -238,5 +238,5 @@ function plusMonths($months, $time = '') {
   if ($months > 0) $months = '+' . $months;
   $res = strtotime($months . 'months', $time);
   $day = date('d', $res);
-  return $day == date('d', $time) ? $res : strtotime("-$day", $res); // use last day of month if same day fails
+  return $day == date('d', $time) ? $res : strtotime(-$day, $res); // use last day of month if same day fails
 }

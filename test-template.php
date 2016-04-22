@@ -28,6 +28,7 @@ class %MODULE%FEATURE_NAME extends DrupalWebTestCase {
   
   public function setUp2($sceneName, $variant = '') {
     global $sceneTest; $sceneTest = $this;
+    global $testModule; $testModule = self::MODULE;
     parent::setUp(self::MODULE);
 
     $this->subs = usualSubs();

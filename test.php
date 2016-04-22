@@ -23,7 +23,7 @@ ini_set('max_execution_time', 0); // don't ever timeout when testing
 
 parse_str($_SERVER['QUERY_STRING'], $args);
 extract($args, EXTR_PREFIX_ALL, 'the'); 
-global $testModule; $testModule = !@$the_feature; // testing whole module? (suppress some test output)
+global $wholeModule; $wholeModule = !@$the_feature; // testing whole module? (suppress some test output)
 //if (@$the_scene) $the_variant = 0;
 if (@$the_module) $modules = explode(',', $the_module);
 //u\deb("top of test.php: okAll=$okAll modules=" . print_r($modules, 1));
@@ -129,7 +129,7 @@ function doTest($module, $feature) {
     //u\deb('after test');
     // Display results are intermixed w debugging output, if any (so don't collect results before displaying)
     $link = testLink(substr($one, 4), $module, '', $feature, $scene, $variant); // drop "test" from description
-    $results[0] .= " [$featureLink] $link";
+    $results[0] .= ".......... [$featureLink] $link";
     $results[0] = color($results[0], 'darkkhaki');
     drupal_set_message(join(PHP_EOL, $results));
 
@@ -171,7 +171,7 @@ class DrupalWebTestCase {
       $no++; $noAll++;
       if (!strpos($results[0], 'FAIL')) {
         $fails++;
-        $results[0] = gotoError('FAIL', $fails);
+        $results[0] = gotoError('<br>FAIL', $fails);
       }
     }
   }
@@ -215,8 +215,8 @@ function testLink($description, $module, $div = '', $feature = '', $scene = '', 
 
 function gotoError($title, $errorNum = 0) {
   $next = $errorNum + 1;
-  $link = "javascript:document.getElementById('testError$next').scrollIntoView(true); window.scrollBy(0, -50);";
-  return "<a id='testError$errorNum' href=\"$link\">$title</a>";
+  $link = "javascript:document.getElementById('testError$next').scrollIntoView(true); window.scrollBy(0, -100);";
+  return "<a id='testError$errorNum' href=\"$link\" style=\"font-size:20px;\">NEXT</a> $title";
 }
 
 /**
