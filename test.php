@@ -16,7 +16,7 @@
 global $okAll, $noAll; $okAll = $noAll = 0; // overall results counters
 global $the_feature, $the_div, $the_scene, $the_variant; // allows for arbitrarily selective testing
 global $programPath; $programPath = $_SERVER['REDIRECT_URL'];
-define('TESTING', 1); // use this to activate extra debugging statements (if (t\EST()))
+define('TESTING', 1); // use this to activate extra debugging statements (if (u\test()))
 define('MAX_DIVLESS', 7); // maximum number of features before module gets subdivided
 define('DIV_SIZE', 6);
 ini_set('max_execution_time', 0); // don't ever timeout when testing
@@ -26,7 +26,6 @@ extract($args, EXTR_PREFIX_ALL, 'the');
 global $wholeModule; $wholeModule = !@$the_feature; // testing whole module? (suppress some test output)
 //if (@$the_scene) $the_variant = 0;
 if (@$the_module) $modules = explode(',', $the_module);
-//u\deb("top of test.php: okAll=$okAll modules=" . print_r($modules, 1));
 
 foreach($modules as $module) doModule($module, $menu = !@$args);
 if (!$menu) {
@@ -47,12 +46,15 @@ function doModule($module, $menu) {
   $fails = $ok = $no = 0; // results counters
 
   $moduleName = strtoupper(basename($module));
-  $path = __DIR__ . "/../$module"; // relative path from test program to module directory
-  $compilerPath = "$base_url/sites/all/modules/gherkin/compile.php?module=$module";
-  $compilation = file_get_contents($compilerPath); // recompile tests first
-  if (strpos($compilation, 'ERROR:') !== FALSE) {
-    report($moduleName, 0, "<a href='$compilerPath'>compile error</a>", $module, $the_div);
-    return;
+  $path = __DIR__ . "/../../$module"; // path to module directory (above vendor/gherkin)
+  $compilerPath = "$base_url/vendor/gherkin/compile.php?lang=PHP&path=$path";
+
+  if (TRUE) { // make it easy to turn off compilation (for debugging test failure)
+    $compilation = file_get_contents($compilerPath); // recompile tests first
+    if (strpos($compilation, 'ERROR ') !== FALSE or strpos($compilation, 'Fatal error') or strpos($compilation, 'Parse error') ) {
+      die("<b style='color:red;'>Gherkin Compiler error</b> compiling module $module (fix, go back, retry):<br>$compilation");
+      return report($moduleName, 0, "<a href='$compilerPath'>compile error</a>", $module, $the_div);
+    }
   }
   $features = str_replace("$path/features/", '', str_replace('.feature', '', findFiles("$path/features", '/.*\.feature$/')));
   $featureCount = count($features);
@@ -83,7 +85,7 @@ function doModule($module, $menu) {
     foreach (array('error', 'warning', 'status') as $type) $overallResults[$type] = array();
     foreach ($features as $feature) doTest($module, $feature);
     foreach ($overallResults as $type => $one) foreach($one as $msg) {
-      if ($type == 'error') $msg = color('ERRS: ' . print_r($msg, 1), 'salmon');
+/**/  if ($type == 'error') $msg = color('ERRS: ' . print_r($msg, 1), 'salmon');
       \drupal_set_message($msg);
     }
     
@@ -95,14 +97,14 @@ function doModule($module, $menu) {
 function doTest($module, $feature) {
 ///  debug(compact('module','feature'));
   global $results, $user, $the_feature, $the_scene, $the_variant, $resumeAt, $skipToStep;
-  global $okAll, $noAll, $overallResults;
+  global $overallResults, $fails, $firstFailLink;
   
 /*  if (@$resumeAt and strpos($resumeAt, "$module:$feature:") === FALSE) {
   u\deb("skipping $module:$feature: resumeAt=$resumeAt");
     return; // not to the right feature yet
   }
   */
-  include ($feature_filename = __DIR__ . "/../$module/tests/$feature.test");
+  include ($feature_filename = DRUPAL_ROOT . "/$module/test/$feature.test");
 
   $featureLink = testLink($feature, $module, '', $feature);
   $classname = basename($module . $feature);
@@ -125,10 +127,13 @@ function doTest($module, $feature) {
     $t->$one(); // run one test
     r\acct::setDefault($mya); // restore tester's account
 */
-    $t->$one(); // run one test
-    //u\deb('after test');
     // Display results are intermixed w debugging output, if any (so don't collect results before displaying)
-    $link = testLink(substr($one, 4), $module, '', $feature, $scene, $variant); // drop "test" from description
+
+    $xfails = @$fails;
+    $t->$one(); // run one test
+    $link = testLink($testName = substr($scene, 4), $module, '', $feature, $scene, $variant); // drop "test" from description
+    if ($fails != $xfails and !@$firstFailLink) $firstFailLink = ' ' . str_replace("$testName<", 'Retry1<', $link) . ' ';
+
     $results[0] .= ".......... [$featureLink] $link";
     $results[0] = color($results[0], 'darkkhaki');
     drupal_set_message(join(PHP_EOL, $results));
@@ -145,34 +150,23 @@ function doTest($module, $feature) {
   //u\deb("done with $module:$feature resumeAt=$resumeAt skipToStep=$skipToStep");
 }
 
-class DrupalWebTestCase {
-  function setUp() {}
-  function assertTrue($bool, $step, $sceneName) {
-    global $results, $skipToStep, $resumeAt;
-    global $ok, $no, $fails, $okAll, $noAll;
+function expect($bool) {
+  global $results;
+  global $ok, $no, $fails, $okAll, $noAll;
+  global $sceneTest, $sceneName;
 
-    $step = htmlspecialchars($step); // make sure it displays properly
-    $step = str_replace('"\\', '', $step); // for example "\user_login"
-    $step = str_replace('\\', "\n     ", $step); // end of data lines
-    $step = str_replace("''", '"', $step); // convention in .feature files
+  $step = htmlspecialchars($sceneTest->step); // make sure it displays properly
 
-    if (@$skipToStep) {
-        //u\deb("SKIPPING scene=$sceneName step=$step resumeAt=$resumeAt skipToStep=$skipToStep");
-      return;
-    }
-
-//    u\deb("NOT SKIPPING step=$step resumeAt=$resumeAt skipToStep=$skipToStep");
-    $where = $sceneName == 'Setup' ? "[$sceneName] " : '';
-    list ($result, $color) = $bool ? array('OK', 'lightgreen') : array('NO', 'yellow');
-    $results[] = $result = color("$result: $where$step", $color);
-    if ($bool) {
-      $ok++; $okAll++;
-    } else {
-      $no++; $noAll++;
-      if (!strpos($results[0], 'FAIL')) {
-        $fails++;
-        $results[0] = gotoError('<br>FAIL', $fails);
-      }
+  $where = $sceneName == 'Setup' ? "[Setup] " : '';
+  list ($result, $color) = $bool ? array('OK', 'lightgreen') : array('NO', 'yellow');
+  $results[] = $result = color("$result: $where$step", $color);
+  if ($bool) {
+    $ok++; $okAll++;
+  } else {
+    $no++; $noAll++;
+    if (!strpos($results[0], 'FAIL')) {
+      $fails++;
+      $results[0] = gotoError('<br>FAIL', $fails);
     }
   }
 }
@@ -182,12 +176,14 @@ function color($msg, $color) {
 }
 
 function insertMessage($s, $type = 'status') {
-  if (!is_string($s)) $s = print_r($s, 1);
+/**/  if (!is_string($s)) $s = print_r($s, 1);
   if (!@$_SESSION['messages'][$type]) $_SESSION['messages'][$type] = array();
   array_unshift($_SESSION['messages'][$type], $s);
 }
 
 function report($moduleName, $ok, $no, $module = '', $div = '') {
+  global $firstFailLink;
+  
   $moduleName = testLink($moduleName, $module);
   if ($div) $moduleName .= ' ' . testLink("Div #$div", $module, $div);
   if ($no) {
@@ -199,6 +195,7 @@ function report($moduleName, $ok, $no, $module = '', $div = '') {
   $moduleName - 
   ok: <span style='color:lightgreen; font-size:300%;'>$ok</span> 
   no: <span style='color:red; font-size:300%;'>$no</span>
+  $firstFailLink
   </h1>
 EOF;
   insertMessage($msg);
@@ -209,7 +206,7 @@ EOF;
  */
 function testLink($description, $module, $div = '', $feature = '', $scene = '', $variant = '') {
   global $programPath;
-  $description = str_replace('_0', '', $description); // omit first variant from description
+//  $description = str_replace('_0', '', $description); // omit first variant from description
   return "<a href='$programPath?module=$module&div=$div&feature=$feature&scene=$scene&variant=$variant&restart=1'>$description</a>";
 }
 

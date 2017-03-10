@@ -1,4 +1,10 @@
-TO DO:
+2017-03-10
+. generalized to handle JS as well as PHP
+. minor changes to accommodate directory restructuring
+
+2016-06-23
+. incorporated test-defs into compiler (major revision)
+. improved substitution handling, including generalized/centralized time substitutions
 
 2015-08-28
 . fixed function names in steps-header.php
