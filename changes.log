@@ -1,3 +1,7 @@
+2018-05-30
+. recovered from HD crash
+. changed test.php to honor CSP
+
 2017-03-10
 . generalized to handle JS as well as PHP
 . minor changes to accommodate directory restructuring

@@ -16,7 +16,8 @@
 $SHOWERRORS = TRUE;
 error_reporting($SHOWERRORS ? E_ALL : 0); ini_set('display_errors', $SHOWERRORS); ini_set('display_startup_errors', $SHOWERRORS);
 define('TESTING', 1); // this should always be set to 1
-define('NOW', time()); // compilation should happen in an instant, conceptually
+date_default_timezone_set('America/New_York'); // including timezone in strtotime gets date wrong
+define('NOW', strtotime('today')); // align times, to make tests easier (need timezone of developer, because this is called indirectly)
 
 list ($compilerPath, $lang, $path) = @$argv ?: ['./', strtoupper(@$_GET['lang']), @$_GET['path']];
 if (!in_array($lang, ['PHP', 'JS'])) error('Language parameter (lang) must be PHP or JS.');
@@ -448,7 +449,7 @@ function standardSubs() {
  */ 
 function subAgo($s, $fmt = '', $time = NULL) {
   if (is_null($time)) $time = strtotime('today', NOW); // standardize to start of day
-  if (!preg_match('/(%[a-z]+)((-\d+|\+\d+)([a-z]+))?/', $s, $m)) error("Bad time sub: $s (fmt = $fmt)");
+  if (!preg_match('/(%[a-z]+)((-\d+|\+\d+)([a-z]+))?/i', $s, $m)) error("Bad time sub: $s (fmt = $fmt)");
   list ($all, $a, $mod, $n, $p) = @$m[2] ? $m : [$m[0], $m[1], '+0d', '+0', 'd'];
 
   $periods = array('min' => 'minutes', 'n' => 'minutes', 'h' => 'hours', 'd' => 'days', 'w' => 'weeks', 'm' => 'months', 'y' => 'years');
@@ -485,9 +486,10 @@ function plusMonths($months, $time = '') {
 function timeSubs($s) {
   $fmts = [
     'ymd' => '%Y-%m-%d',
-    'dmy' => '%d-%b-%Y',
+    'dmy' => '%d%b%Y',
     'dm' => '%d-%b',
     'mdy' => '%m/%d/%y',
+    'mdY' => '%m/%d/%Y',
     'md' => '%b %d',
     'lastmy' => '%b%Y',
     'lastmd' => '%b %d',
@@ -691,4 +693,4 @@ function rayCombine($a, $b) {
   return array_combine($a, $b);
 }
 
-function monthDay1($time = NULL) {return strtotime(strftime('1%b%Y', isset($time) ? $time : time()));}
+function monthDay1($time = NULL) {return strtotime(strftime('1%b%Y', isset($time) ? $time : NOW));}
