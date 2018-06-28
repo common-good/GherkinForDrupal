@@ -26,9 +26,10 @@ define('TEST_EXT', '.test' . (LANG == 'JS' ? '.js' : '')); // test file extensio
 $gherkinPath = dirname($compilerPath);
 
 if (!$path or !$features = findFiles("$path/features", '/\.feature$/', FALSE)) error('No feature files found.');
-if (!$stepsHeader = file_get_contents("$gherkinPath/steps-header.$lang")) error("Missing steps header file for $lang.");
+$ext = strtolower($lang);
+if (!$stepsHeader = file_get_contents("$gherkinPath/steps-header.$ext")) error("Missing steps header file for $lang.");
 if (!file_exists($testDir = "$path/test")) mkdir($testDir);
-if (!$testTemplate = file_get_contents("$gherkinPath/test-template.$lang")) error("Missing test template file for $lang.");
+if (!$testTemplate = file_get_contents("$gherkinPath/test-template.$ext")) error("Missing test template file for $lang.");
 
 $module = strtolower(basename($path));
 $Module = ucfirst($module);

@@ -18,7 +18,7 @@ global $the_feature, $the_div, $the_scene, $the_variant; // allows for arbitrari
 global $programPath; $programPath = $_SERVER['REDIRECT_URL'];
 define('TESTING', 1); // use this to activate extra debugging statements (if (u\test()))
 define('MAX_DIVLESS', 7); // maximum number of features before module gets subdivided
-define('DIV_SIZE', 13);
+define('DIV_SIZE', 10);
 ini_set('max_execution_time', 0); // don't ever timeout when testing
 
 parse_str($_SERVER['QUERY_STRING'], $args);
@@ -49,8 +49,9 @@ function doModule($module, $menu) {
   $path = DRUPAL_ROOT . "/$module"; // path to module directory
   $compilerPath = "$base_url/vendor/gherkin/compile.php?lang=PHP&path=$path";
 
-  if (!$menu) {
+  if (TRUE or !$menu) {
     $compilation = file_get_contents($compilerPath); // recompile tests first
+		die($compilation);
     if (strpos($compilation, 'ERROR ') !== FALSE or strpos($compilation, 'Fatal error') or strpos($compilation, 'Parse error') ) {
 /**/  die("<b class=\"err\">Gherkin Compiler error</b> compiling module $module (fix, go back, retry):<br>$compilation");
       return report($moduleName, 0, "<a href=\"$compilerPath\">compile error</a>", $module, $the_div);
