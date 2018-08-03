@@ -16,8 +16,7 @@
 $SHOWERRORS = TRUE;
 error_reporting($SHOWERRORS ? E_ALL : 0); ini_set('display_errors', $SHOWERRORS); ini_set('display_startup_errors', $SHOWERRORS);
 define('TESTING', 1); // this should always be set to 1
-date_default_timezone_set('America/New_York'); // including timezone in strtotime gets date wrong
-define('NOW', strtotime('today')); // align times, to make tests easier (need timezone of developer, because this is called indirectly)
+define('NOW', time()); // compilation should happen in an instant, conceptually
 
 list ($compilerPath, $lang, $path) = @$argv ?: ['./', strtoupper(@$_GET['lang']), @$_GET['path']];
 if (!in_array($lang, ['PHP', 'JS'])) error('Language parameter (lang) must be PHP or JS.');
@@ -26,10 +25,9 @@ define('TEST_EXT', '.test' . (LANG == 'JS' ? '.js' : '')); // test file extensio
 $gherkinPath = dirname($compilerPath);
 
 if (!$path or !$features = findFiles("$path/features", '/\.feature$/', FALSE)) error('No feature files found.');
-$ext = strtolower($lang);
-if (!$stepsHeader = file_get_contents("$gherkinPath/steps-header.$ext")) error("Missing steps header file for $lang.");
+if (!$stepsHeader = file_get_contents("$gherkinPath/steps-header.$lang")) error("Missing steps header file for $lang.");
 if (!file_exists($testDir = "$path/test")) mkdir($testDir);
-if (!$testTemplate = file_get_contents("$gherkinPath/test-template.$ext")) error("Missing test template file for $lang.");
+if (!$testTemplate = file_get_contents("$gherkinPath/test-template.$lang")) error("Missing test template file for $lang.");
 
 $module = strtolower(basename($path));
 $Module = ucfirst($module);
@@ -694,4 +692,4 @@ function rayCombine($a, $b) {
   return array_combine($a, $b);
 }
 
-function monthDay1($time = NULL) {return strtotime(strftime('1%b%Y', isset($time) ? $time : NOW));}
+function monthDay1($time = NULL) {return strtotime(strftime('1%b%Y', isset($time) ? $time : time()));}
