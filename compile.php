@@ -131,7 +131,7 @@ function doFeature(&$steps, $featureFilename) {
   global $firstScenarioOnly, $FEATURE_NAME, $FEATURE_LONGNAME;
   global $skipping;     
   $GROUP = basename(dirname(dirname($featureFilename)));
-  $FEATURE_NAME = str_replace('.feature', '', basename($featureFilename));
+  $FEATURE_NAME = strtr(basename($featureFilename), ['.feature' => '', '-' => '']);
   $FEATURE_LONGNAME = $FEATURE_NAME; // default English description of feature, in case it's missing from feature file
   $FEATURE_HEADER = '';
   $TESTS = '';

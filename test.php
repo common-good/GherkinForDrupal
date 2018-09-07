@@ -107,8 +107,8 @@ function doTest($module, $feature) {
   include ($feature_filename = DRUPAL_ROOT . "/$module/test/$feature.test");
 
   $featureLink = testLink($feature, $module, '', $feature);
-  $classname = basename($module . $feature);
-///  print_r(compact('module','feature'));
+  $classname = basename($module) . str_replace('-', '', $feature);
+///  print_r(compact('module','feature','classname')); die('in test');
   $t = new $classname();
   $s = file_get_contents($feature_filename);
   preg_match_all('/function (test.*?)\(/sm', $s, $matches);

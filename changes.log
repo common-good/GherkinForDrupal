@@ -1,3 +1,6 @@
+2018-09-06
+. dashes in feature names are now ignored
+
 2018-05-30
 . recovered from HD crash
 . changed test.php to honor CSP
