@@ -1,3 +1,6 @@
+2018-09-22
+. moved features (and steps and tests) to a features folder above rcredits/
+
 2018-09-06
 . dashes in feature names are now ignored
 

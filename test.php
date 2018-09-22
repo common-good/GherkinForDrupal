@@ -5,7 +5,7 @@
  * Call as include file or stand-alone:
  *
  * INCLUDE FILE (parameters set before include)
- * @param array $modules: list of module paths to display features for (relative to this file's parent)
+ * @param array $modules: list of module paths to display features for
  *
  * STAND-ALONE (query parameters in URL)
  * @param string $module: path of test module to run (relative to this file's parent)
@@ -37,7 +37,7 @@ if (!$menu) {
 
 /**
  * Run tests for one module
- * @param string $module: relative path of module to run
+ * @param string $module: name of module to run
  * @param bool $menu: show just the menu
  */
 function doModule($module, $menu) {
@@ -46,7 +46,7 @@ function doModule($module, $menu) {
   $fails = $ok = $no = 0; // results counters
 
   $moduleName = strtoupper(basename($module));
-  $path = DRUPAL_ROOT . "/$module"; // path to module directory
+  $path = DRUPAL_ROOT . "/features/$module"; // path to module directory
   $compilerPath = preg_replace('~:[0-9]*/~', ':/', "$base_url/vendor/gherkin/compile.php?lang=PHP&path=$path"); 
 
   if (!$menu) {
@@ -56,7 +56,8 @@ function doModule($module, $menu) {
       return report($moduleName, 0, "<a href=\"$compilerPath\">compile error</a>", $module, $the_div);
     }
   }
-  $features = str_replace("$path/features/", '', str_replace('.feature', '', findFiles("$path/features", '/.*\.feature$/')));
+//  $features = str_replace("$path/features/", '', str_replace('.feature', '', findFiles("$path", '/.*\.feature$/')));
+  foreach ($features = findFiles("$path", '/.*\.feature$/') as $i => $flnm) $features[$i] =  str_replace('.feature', '', basename($flnm));
   $featureCount = count($features);
   if (@$the_feature) {
     $features = array($the_feature);
@@ -104,13 +105,14 @@ function doTest($module, $feature) {
     return; // not to the right feature yet
   }
   */
-  include ($feature_filename = DRUPAL_ROOT . "/$module/test/$feature.test");
+
+  include ($featureFilename = DRUPAL_ROOT . "/features/$module/test/$feature.test");
 
   $featureLink = testLink($feature, $module, '', $feature);
   $classname = basename($module) . str_replace('-', '', $feature);
 ///  print_r(compact('module','feature','classname')); die('in test');
   $t = new $classname();
-  $s = file_get_contents($feature_filename);
+  $s = file_get_contents($featureFilename);
   preg_match_all('/function (test.*?)\(/sm', $s, $matches);
 
   foreach ($matches[1] as $one) {
