@@ -18,7 +18,7 @@ global $the_feature, $the_div, $the_scene, $the_variant; // allows for arbitrari
 global $programPath; $programPath = $_SERVER['REDIRECT_URL'];
 define('TESTING', 1); // use this to activate extra debugging statements (if (u\test()))
 define('MAX_DIVLESS', 7); // maximum number of features before module gets subdivided
-define('DIV_SIZE', 6);
+define('DIV_SIZE', 10);
 ini_set('max_execution_time', 0); // don't ever timeout when testing
 
 parse_str($_SERVER['QUERY_STRING'], $args);
@@ -47,13 +47,13 @@ function doModule($module, $menu) {
 
   $moduleName = strtoupper(basename($module));
   $path = DRUPAL_ROOT . "/$module"; // path to module directory
-  $compilerPath = "$base_url/vendor/gherkin/compile.php?lang=PHP&path=$path";
+  $compilerPath = preg_replace('~:[0-9]*/~', ':/', "$base_url/vendor/gherkin/compile.php?lang=PHP&path=$path"); 
 
   if (!$menu) {
     $compilation = file_get_contents($compilerPath); // recompile tests first
     if (strpos($compilation, 'ERROR ') !== FALSE or strpos($compilation, 'Fatal error') or strpos($compilation, 'Parse error') ) {
-      die("<b style='color:red;'>Gherkin Compiler error</b> compiling module $module (fix, go back, retry):<br>$compilation");
-      return report($moduleName, 0, "<a href='$compilerPath'>compile error</a>", $module, $the_div);
+/**/  die("<b class=\"err\">Gherkin Compiler error</b> compiling module $module (fix, go back, retry):<br>$compilation");
+      return report($moduleName, 0, "<a href=\"$compilerPath\">compile error</a>", $module, $the_div);
     }
   }
   $features = str_replace("$path/features/", '', str_replace('.feature', '', findFiles("$path/features", '/.*\.feature$/')));
@@ -73,19 +73,19 @@ function doModule($module, $menu) {
       if ($f == 1) {
         $div++;
         $divLink = testLink("Div #$div", $module, $div);
-        $menu[] = "<br><b style='font-size:120%; margin:0 0 0 0;'>$divLink: </b>";
+        $menu[] = "<br><b class=\"test-divlink\">$divLink: </b>";
       }
       $menu[] = testLink($feature, $module, '', $feature) . ' , ';
       $f = $f < DIV_SIZE ? $f + 1 : 1;
     }
 
-    insertMessage("<h1 style='margin:18px 0 -18px 0;'>$moduleName: $link</h1>" . join('', $menu));
+    insertMessage("<h1 class=\"test-hdr\">$moduleName: $link</h1>" . join('', $menu));
   } else {
     $overallResults = array();
     foreach (array('error', 'warning', 'status') as $type) $overallResults[$type] = array();
     foreach ($features as $feature) doTest($module, $feature);
     foreach ($overallResults as $type => $one) foreach($one as $msg) {
-/**/  if ($type == 'error') $msg = color('ERRS: ' . print_r($msg, 1), 'salmon');
+/**/  if ($type == 'error') $msg = color('ERRS: ' . print_r($msg, 1), 'test-error');
       \drupal_set_message($msg);
     }
     
@@ -107,8 +107,8 @@ function doTest($module, $feature) {
   include ($feature_filename = DRUPAL_ROOT . "/$module/test/$feature.test");
 
   $featureLink = testLink($feature, $module, '', $feature);
-  $classname = basename($module . $feature);
-///  print_r(compact('module','feature'));
+  $classname = basename($module) . str_replace('-', '', $feature);
+///  print_r(compact('module','feature','classname')); die('in test');
   $t = new $classname();
   $s = file_get_contents($feature_filename);
   preg_match_all('/function (test.*?)\(/sm', $s, $matches);
@@ -135,7 +135,7 @@ function doTest($module, $feature) {
     if ($fails != $xfails and !@$firstFailLink) $firstFailLink = ' ' . str_replace("$testName<", 'Retry1<', $link) . ' ';
 
     $results[0] .= ".......... [$featureLink] $link";
-    $results[0] = color($results[0], 'darkkhaki');
+    $results[0] = color($results[0], 'pass');
     drupal_set_message(join(PHP_EOL, $results));
 
     $msgs = @$_SESSION['messages'] ?: array();
@@ -158,7 +158,7 @@ function expect($bool) {
   $step = htmlspecialchars($sceneTest->step); // make sure it displays properly
 
   $where = $sceneName == 'Setup' ? "[Setup] " : '';
-  list ($result, $color) = $bool ? array('OK', 'lightgreen') : array('NO', 'yellow');
+  list ($result, $color) = $bool ? array('OK', 'success') : array('NO', 'fail');
   $results[] = $result = color("$result: $where$step", $color);
   if ($bool) {
     $ok++; $okAll++;
@@ -172,7 +172,7 @@ function expect($bool) {
 }
 
 function color($msg, $color) {
-  return "<pre style='background-color:$color;'>$msg</pre>";
+  return "<pre class=\"test-$color\">$msg</pre>";
 }
 
 function insertMessage($s, $type = 'status') {
@@ -193,8 +193,8 @@ function report($moduleName, $ok, $no, $module = '', $div = '') {
   $msg = <<<EOF
   <h1>
   $moduleName - 
-  ok: <span style='color:lightgreen; font-size:300%;'>$ok</span> 
-  no: <span style='color:red; font-size:300%;'>$no</span>
+  ok: <span class="test-report-ok">$ok</span> 
+  no: <span class="test-report-no">$no</span>
   $firstFailLink
   </h1>
 EOF;
@@ -207,13 +207,12 @@ EOF;
 function testLink($description, $module, $div = '', $feature = '', $scene = '', $variant = '') {
   global $programPath;
 //  $description = str_replace('_0', '', $description); // omit first variant from description
-  return "<a href='$programPath?module=$module&div=$div&feature=$feature&scene=$scene&variant=$variant&restart=1'>$description</a>";
+  return "<a href=\"$programPath?module=$module&div=$div&feature=$feature&scene=$scene&variant=$variant&restart=1\">$description</a>";
 }
 
 function gotoError($title, $errorNum = 0) {
   $next = $errorNum + 1;
-  $link = "javascript:document.getElementById('testError$next').scrollIntoView(true); window.scrollBy(0, -100);";
-  return "<a id='testError$errorNum' href=\"$link\" style=\"font-size:20px;\">NEXT</a> $title";
+  return "<a id='testError$errorNum' index=\"$next\" class=\"test-next\">NEXT</a> $title";
 }
 
 /**
@@ -235,7 +234,7 @@ function gotoError($title, $errorNum = 0) {
  */
 function findFiles($path = '.', $pattern = '/./', $result = '') {
   if (!$recurse = is_array($result)) $result = array();
-  if (!is_dir($path)) die("No features folder found for that module (path $path).");
+/**/  if (!is_dir($path)) die("No features folder found for that module (path $path).");
   $dir = dir($path);
   
   while ($filename = $dir->read()) {
