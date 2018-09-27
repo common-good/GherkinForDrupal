@@ -26,7 +26,7 @@ define('TEST_EXT', '.test' . (LANG == 'JS' ? '.js' : '')); // test file extensio
 $gherkinPath = dirname($compilerPath);
 
 //die("path=$path");
-if (!$path or !$features = findFiles("$path", '/\.feature$/', FALSE)) error('No feature files found.');
+if (!$path or !$features = findFiles("$path/features", '/\.feature$/', FALSE)) error('No feature files found.');
 $ext = strtolower($lang);
 if (!$stepsHeader = file_get_contents("$gherkinPath/steps-header.$ext")) error("Missing steps header file for $lang.");
 if (!file_exists($testDir = "$path/test")) mkdir($testDir);
@@ -74,7 +74,7 @@ function doFeatures(&$steps, $features, $module, $testTemplate) {
   foreach ($features as $featureFilename) {
     $base = basename($featureFilename);
     @mkdir(dirname($featureFilename) . '/test');
-    $testFilename = str_replace('.feature', TEST_EXT, str_replace($base, 'test/' . $base, $featureFilename));
+    $testFilename = str_replace('features/', 'test/', str_replace('.feature', TEST_EXT, $featureFilename));
     $testData = doFeature($steps, $featureFilename);
     $test = strtr2($testTemplate, $testData + ($moduleSubs ?: []));
     file_put_contents($testFilename, $test);

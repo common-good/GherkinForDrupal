@@ -16,12 +16,10 @@
  * You may also add statements just below this header (for example "use" and "require_once").
  */
 
-define('RROOT', __DIR__ . '/../../rcredits');
-require_once RROOT . '/defs.inc';
+require_once __DIR__ . '/defs.inc';
 
 if (basename($_SERVER['SCRIPT_FILENAME']) != 'compile.php') {
-  require_once RROOT . '/cg.inc';
-  require_once RROOT . '/cg-testing.inc';
+  require_once __DIR__ . '/../whatever.inc';
 }
 
 /**

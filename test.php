@@ -5,7 +5,7 @@
  * Call as include file or stand-alone:
  *
  * INCLUDE FILE (parameters set before include)
- * @param array $modules: list of module paths to display features for
+ * @param array $modules: list of module paths to display features for (relative to this file's parent)
  *
  * STAND-ALONE (query parameters in URL)
  * @param string $module: path of test module to run (relative to this file's parent)
@@ -37,7 +37,7 @@ if (!$menu) {
 
 /**
  * Run tests for one module
- * @param string $module: name of module to run
+ * @param string $module: relative path of module to run
  * @param bool $menu: show just the menu
  */
 function doModule($module, $menu) {
@@ -56,8 +56,8 @@ function doModule($module, $menu) {
       return report($moduleName, 0, "<a href=\"$compilerPath\">compile error</a>", $module, $the_div);
     }
   }
-//  $features = str_replace("$path/features/", '', str_replace('.feature', '', findFiles("$path", '/.*\.feature$/')));
-  foreach ($features = findFiles("$path", '/.*\.feature$/') as $i => $flnm) $features[$i] =  str_replace('.feature', '', basename($flnm));
+  $features = str_replace("$path/features/", '', str_replace('.feature', '', findFiles("$path/features", '/.*\.feature$/')));
+  // foreach ($features = findFiles("$path", '/.*\.feature$/') as $i => $flnm) $features[$i] =  str_replace('.feature', '', basename($flnm));
   $featureCount = count($features);
   if (@$the_feature) {
     $features = array($the_feature);
@@ -106,7 +106,7 @@ function doTest($module, $feature) {
   }
   */
 
-  include ($featureFilename = DRUPAL_ROOT . "/features/$module/test/$feature.test");
+  include ($featureFilename = DRUPAL_ROOT . "/$module/test/$feature.test");
 
   $featureLink = testLink($feature, $module, '', $feature);
   $classname = basename($module) . str_replace('-', '', $feature);
