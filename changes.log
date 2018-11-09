@@ -1,3 +1,7 @@
+2018-11-09
+. fixed font size of comments in Notepad++ formatter
+. added push to gff.bat when finishing
+
 2018-09-06
 . dashes in feature names are now ignored
 
