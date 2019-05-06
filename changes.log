@@ -1,13 +1,12 @@
+2019-05-05
+. changed time variables to be based on NOW rather than start of day -- except "%daystart"
+
 2018-11-09
 . fixed font size of comments in Notepad++ formatter
 . added push to gff.bat when finishing
 
 2018-09-06
 . dashes in feature names are now ignored
-
-2018-05-30
-. recovered from HD crash
-. changed test.php to honor CSP
 
 2017-03-10
 . generalized to handle JS as well as PHP

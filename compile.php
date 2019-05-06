@@ -17,7 +17,8 @@ $SHOWERRORS = TRUE;
 error_reporting($SHOWERRORS ? E_ALL : 0); ini_set('display_errors', $SHOWERRORS); ini_set('display_startup_errors', $SHOWERRORS);
 define('TESTING', 1); // this should always be set to 1
 date_default_timezone_set('America/New_York'); // including timezone in strtotime gets date wrong
-define('NOW', strtotime('today')); // align times, to make tests easier (need timezone of developer, because this is called indirectly)
+define('TODAY', strtotime('today')); // align times, to make tests easier (need timezone of developer, because this is called indirectly)
+define('NOW', time());
 
 list ($compilerPath, $lang, $path) = @$argv ?: ['./', strtoupper(@$_GET['lang']), @$_GET['path']];
 if (!in_array($lang, ['PHP', 'JS'])) error('Language parameter (lang) must be PHP or JS.');
@@ -62,7 +63,7 @@ doFeatures($steps, $features, $module, $testTemplate);
 doSteps($steps, $stepsText);
 if (LANG == 'JS') $stepsText .= '}';
 if (!file_put_contents($stepsFilename, $stepsText)) error("Cannot write stepsfile $stepsFilename.");
-echo "\n\n<br>Updated $stepsFilename -- Done. " . date('g:ia') . "\n";
+/**/ echo "\n\n<br>Updated $stepsFilename -- Done. " . date('g:ia') . "\n";
 
 // END of program
 
@@ -73,12 +74,11 @@ function doFeatures(&$steps, $features, $module, $testTemplate) {
   global $moduleSubs;
   foreach ($features as $featureFilename) {
     $base = basename($featureFilename);
-    @mkdir(dirname($featureFilename) . '/test');
     $testFilename = str_replace('features/', 'test/', str_replace('.feature', TEST_EXT, $featureFilename));
     $testData = doFeature($steps, $featureFilename);
     $test = strtr2($testTemplate, $testData + ($moduleSubs ?: []));
     file_put_contents($testFilename, $test);
-    echo "Created: $testFilename<br>";
+/**/    echo "Created: $testFilename<br>";
   }
 }
 
@@ -303,7 +303,7 @@ function getSteps($stepsText) {
      : '^this\.(.*?) = function \()');
   
   preg_match_all("~$pattern~ms", $stepsText, $matches, PREG_SET_ORDER);
-//  if (!$matches) die(print_r(compact('stepsText','pattern'), 1));
+///  if (!$matches) die(print_r(compact('stepsText','pattern'), 1));
   $steps = [];
   foreach ($matches as $step) {
     $step = rayCombine($stepKeys, $step);
@@ -336,7 +336,7 @@ function getArgs($line) {
   global $argPatterns;
   preg_match_all("/$argPatterns/ms", $line, $matches);
   foreach ($matches[0] as $arg) $args[] = fixArg(squeeze($arg, '"'), TRUE);
-//  error(print_r(compact('line','argPatterns','matches', 'arg', 'args'), 1));
+///  error(print_r(compact('line','argPatterns','matches', 'arg', 'args'), 1));
   return @$args ?: [];
 }
 
@@ -451,8 +451,7 @@ function standardSubs() {
  * @param string $fmt: what strftime format to use (none if empty)
  * @param int $time: base *nix time (defaults to now)
  */ 
-function subAgo($s, $fmt = '', $time = NULL) {
-  if (is_null($time)) $time = strtotime('today', NOW); // standardize to start of day
+function subAgo($s, $fmt = '', $time = NOW) {
   if (!preg_match('/(%[a-z]+)((-\d+|\+\d+)([a-z]+))?/i', $s, $m)) error("Bad time sub: $s (fmt = $fmt)");
   list ($all, $a, $mod, $n, $p) = @$m[2] ? $m : [$m[0], $m[1], '+0d', '+0', 'd'];
 
@@ -472,8 +471,7 @@ function subAgo($s, $fmt = '', $time = NULL) {
  * @return int: the resulting time, same day of month if possible, otherwise last day of month.
  * strtotime() should do this, but it actually returns March 2nd for strtotime('-1 month', strtotime('3/30/2014'))
  */
-function plusMonths($months, $time = '') {
-  if ($time === '') $time = NOW;
+function plusMonths($months, $time = NOW) {
   if ($months > 0) $months = '+' . $months;
   $res = strtotime($months . 'months', $time);
   $day = date('d', $res);
@@ -504,17 +502,18 @@ function timeSubs($s) {
     'yesterday' => '',
     'tomorrow' => '',
     'now' => '',
+    'daystart' => '',
   ];
   $times = [
     'yesterday' => strtotime('-1 day', NOW),
     'tomorrow' => strtotime('+1 day', NOW),
-    'now' => NOW,
+    'daystart' => TODAY,
     'lastm' => Monthday1(Monthday1() - 1),
   ];
   foreach (['lastmy', 'lastmd', 'lastmdy'] as $k) $times[$k] = $times['lastm'];
   
   foreach ($fmts as $k => $fmt) {
-    while (strpos($s, "%$k") !== FALSE) $s = subAgo($s, $fmt, @$times[$k]); // might have multiple variations
+    while (strpos($s, "%$k") !== FALSE) $s = subAgo($s, $fmt, @$times[$k] ?: NOW); // might have multiple variations
   }
   return $s;
 }
@@ -584,7 +583,7 @@ function fixStepFunction(&$funcArray, $testFunction, $testFuncQualified, $englis
     $funcArray['TMB'][$testFuncQualified] = $isThen ? 'TEST' : 'MAKE';
   } else {
     $TMB_changes = $isThen ? array('MAKE' => 'BOTH') : array('TEST' => 'BOTH');
-    //print_r(compact('TMB_changes','isThen','testFuncQualified') + array('zot'=>$funcArray['TMB'][$testFuncQualified]));
+///    print_r(compact('TMB_changes','isThen','testFuncQualified') + array('zot'=>$funcArray['TMB'][$testFuncQualified]));
     $funcArray['TMB'][$testFuncQualified] = strtr($funcArray['TMB'][$testFuncQualified], $TMB_changes);
   }
   return $funcArray;
@@ -616,7 +615,7 @@ function squeeze($string, $char) {
 }
 
 function jsonEncode($s) {return json_encode($s) ?: json_encode(purify($s));} // , JSON_UNESCAPED_SLASHES
-function fmtDate($time = NULL, $numeric = FALSE) {return strftime($numeric ? '%m/%d/%Y' : '%d-%b-%Y', isset($time) ? $time : NOW);}
+function fmtDate($time = NOW, $numeric = FALSE) {return strftime($numeric ? '%m/%d/%Y' : '%d-%b-%Y', $time);}
 
 function purify($s) {
   if (is_array($s)) {
@@ -679,7 +678,7 @@ function parseScenario(&$steps, $testFunction, $lines) {
       
       $testFuncQualified = str_replace('- test', '', str_replace('- feature', '', "$FEATURE_NAME - $testFunction"));
       $errArgs = compact(ray('stepFunction,FEATURE_LONGNAME,line')); // for error reporting, just in case 
-//      print_r(compact('stepFunction') + ['step' => $steps[$stepFunction]]);
+///      print_r(compact('stepFunction') + ['step' => $steps[$stepFunction]]);
       fixStepFunction($steps[$stepFunction], $testFunction, $testFuncQualified, $english, $isThen, $tail, $errArgs);
     } elseif ($word1 == 'Skip' or $word1 == 'Resume') {
       $skipping = ($word1 == 'Skip'); // might call And skip 
@@ -693,8 +692,8 @@ function parseScenario(&$steps, $testFunction, $lines) {
  * Return array_combine of the two parameters, after checking for length mismatch.
  */
 function rayCombine($a, $b) {
-  if (count($a) != count($b)) error("Length mismatch combining arrays: \n" . print_r($a, 1) . "\n" . print_r($b, 1));
+/**/  if (count($a) != count($b)) error("Length mismatch combining arrays: \n" . print_r($a, 1) . "\n" . print_r($b, 1));
   return array_combine($a, $b);
 }
 
-function monthDay1($time = NULL) {return strtotime(strftime('1%b%Y', isset($time) ? $time : NOW));}
+function monthDay1($time = NOW) {return strtotime(strftime('1%b%Y', $time));}
