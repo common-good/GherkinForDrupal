@@ -47,10 +47,15 @@ function doModule($module, $menu) {
 
   $moduleName = strtoupper(basename($module));
   $path = DRUPAL_ROOT . "/$module"; // path to module directory
-  $compilerPath = preg_replace('~:[0-9]*/~', ':/', "$base_url/vendor/gherkin/compile.php?lang=PHP&path=$path"); 
+  $compilerPath = preg_replace('~:[0-9]*/~', ':/', LOCAL_URL . "/vendor/gherkin/compile.php?lang=PHP&path=$path"); 
 
   if (!$menu) {
-    $compilation = file_get_contents($compilerPath); // recompile tests first
+    if (isDEV) {
+      $arrContextOptions = [ "ssl" => [ 'verify_peer' => false, 'verify_peer_name' => false ] ];
+      $compilation = file_get_contents($compilerPath, false, stream_context_create($arrContextOptions)); // recompile tests first
+    } else {
+      $compilation = file_get_contents($compilerPath); // recompile tests first
+    }
     if (strpos($compilation, 'ERROR ') !== FALSE or strpos($compilation, 'Fatal error') or strpos($compilation, 'Parse error') ) {
 /**/  die("<b class=\"err\">Gherkin Compiler error</b> compiling module $module (fix, go back, retry):<br>$compilation");
       return report($moduleName, 0, "<a href=\"$compilerPath\">compile error</a>", $module, $the_div);
