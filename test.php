@@ -51,7 +51,7 @@ function doModule($module, $menu) {
 
   if (!$menu) {
     if (isDEV) {
-      $arrContextOptions = [ "ssl" => [ 'verify_peer' => false, 'verify_peer_name' => false ] ];
+      $arrContextOptions = [ "ssl" => [ 'verify_peer' => false, 'verify_peer_name' => false, 'allow_self_signed' => true, 'SNI_enabled' => true ] ];
       $compilation = file_get_contents($compilerPath, false, stream_context_create($arrContextOptions)); // recompile tests first
     } else {
       $compilation = file_get_contents($compilerPath); // recompile tests first
