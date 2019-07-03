@@ -1,3 +1,7 @@
+2019-07-03 feature/retry-link
+. added a retry link even when all tests pass
+. added %thism for first second of current month
+
 2019-05-05
 . changed time variables to be based on NOW rather than start of day -- except "%daystart"
 

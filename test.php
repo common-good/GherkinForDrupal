@@ -103,7 +103,7 @@ function doModule($module, $menu) {
 function doTest($module, $feature) {
 ///  debug(compact('module','feature'));
   global $results, $user, $the_feature, $the_scene, $the_variant, $resumeAt, $skipToStep;
-  global $overallResults, $fails, $firstFailLink;
+  global $overallResults, $fails, $firstFailLink, $firstTestLink;
   
 /*  if (@$resumeAt and strpos($resumeAt, "$module:$feature:") === FALSE) {
   u\deb("skipping $module:$feature: resumeAt=$resumeAt");
@@ -139,7 +139,9 @@ function doTest($module, $feature) {
     $xfails = @$fails;
     $t->$one(); // run one test
     $link = testLink($testName = substr($scene, 4), $module, '', $feature, $scene, $variant); // drop "test" from description
-    if ($fails != $xfails and !@$firstFailLink) $firstFailLink = ' ' . str_replace("$testName<", 'Retry1<', $link) . ' ';
+    $retryLink = ' ' . str_replace("$testName<", 'Retry1<', $link) . ' ';
+    if (!@$firstTestLink) $firstTestLink = $retryLink;
+    if ($fails != $xfails and !@$firstFailLink) $firstFailLink = $retryLink;
 
     $results[0] .= ".......... [$featureLink] $link";
     $results[0] = color($results[0], 'pass');
@@ -189,7 +191,9 @@ function insertMessage($s, $type = 'status') {
 }
 
 function report($moduleName, $ok, $no, $module = '', $div = '') {
-  global $firstFailLink;
+  global $firstFailLink, $firstTestLink;
+  
+  $retryLink = @$firstFailLink ?: $firstTestLink;
   
   $moduleName = testLink($moduleName, $module);
   if ($div) $moduleName .= ' ' . testLink("Div #$div", $module, $div);
@@ -202,7 +206,7 @@ function report($moduleName, $ok, $no, $module = '', $div = '') {
   $moduleName - 
   ok: <span class="test-report-ok">$ok</span> 
   no: <span class="test-report-no">$no</span>
-  $firstFailLink
+  $retryLink
   </h1>
 EOF;
   insertMessage($msg);

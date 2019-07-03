@@ -26,7 +26,6 @@ define('LANG', $lang);
 define('TEST_EXT', '.test' . (LANG == 'JS' ? '.js' : '')); // test file extension
 $gherkinPath = dirname($compilerPath);
 
-//die("path=$path");
 if (!$path or !$features = findFiles("$path/features", '/\.feature$/', FALSE)) error('No feature files found.');
 $ext = strtolower($lang);
 if (!$stepsHeader = file_get_contents("$gherkinPath/steps-header.$ext")) error("Missing steps header file for $lang.");
@@ -358,9 +357,11 @@ function fixArg($arg, $quote = FALSE, $arrayOk = FALSE) {
   $arg = timeSubs($arg);
   
   if (strpos($arg, '%(') !== FALSE) { // evaluate %(expression), which must currently be at end of arg
-    $arg = preg_replace_callback('/%\((.*?)\)$/', function($m) {
-      return eval("return $m[1];");
-    }, $arg0 = $arg);
+    try {
+      $arg = preg_replace_callback('/%\((.*?)\)$/', function($m) {
+        return eval("return $m[1];");
+      }, $arg0 = $arg);
+    } catch (Exception $e) {$arg = '';}
     if ($arg === '') error("Bad expression in arg: $arg0");
   }
   
@@ -497,6 +498,7 @@ function timeSubs($s) {
     'lastmd' => '%b %d',
     'lastmdy' => '%m/%d/%y',
     'lastm' => '',
+    'thism' => '',
     'todayn' => '%Y%m%d',
     'today' => '',
     'yesterday' => '',
@@ -509,6 +511,7 @@ function timeSubs($s) {
     'tomorrow' => strtotime('+1 day', NOW),
     'daystart' => TODAY,
     'lastm' => Monthday1(Monthday1() - 1),
+    'thism' => Monthday1(),
   ];
   foreach (['lastmy', 'lastmd', 'lastmdy'] as $k) $times[$k] = $times['lastm'];
   
@@ -596,7 +599,7 @@ function strtr2($string, $subs, $prefix = '%') {
   return $string;
 }
 
-function error($message, $subs = array()) {die(strtr2("\n\nERROR (See howto.txt): $message.", $subs, '!'));}
+/**/ function error($message, $subs = array()) {die(strtr2("\n\nERROR (See howto.txt): $message.", $subs, '!'));}
 
 function expect($bool, $message) {
   global $FEATURE_NAME;
