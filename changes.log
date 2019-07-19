@@ -1,3 +1,7 @@
+2019-07-19 feature/debugging-aids
+. now tells you when you're on the final failed test in the group you ran
+. isolates nearly all previous global variables into a single global object $T
+
 2019-07-03 feature/retry-link
 . added a retry link even when all tests pass
 . added %thism for first second of current month

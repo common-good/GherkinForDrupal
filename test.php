@@ -13,23 +13,27 @@
  * @param string $scene: which specific scenario within that feature (defaults to all)
  * @param int $variant: which specific variant within that scene (defaults to all)
  */
-global $okAll, $noAll; $okAll = $noAll = 0; // overall results counters
-global $the_feature, $the_div, $the_scene, $the_variant; // allows for arbitrarily selective testing
-global $programPath; $programPath = $_SERVER['REDIRECT_URL'];
+
 define('TESTING', 1); // use this to activate extra debugging statements (if (u\test()))
 define('MAX_DIVLESS', 7); // maximum number of features before module gets subdivided
 define('DIV_SIZE', 10);
 ini_set('max_execution_time', 0); // don't ever timeout when testing
 
+global $T; $T = new stdClass();
+
+$T->okAll = $T->noAll = 0; // overall results counters
+$T->programPath = $_SERVER['REDIRECT_URL'];
+$T->feature = $T->div = $T->scene = $T->variant = NULL; // allows for arbitrarily selective testing
 parse_str($_SERVER['QUERY_STRING'], $args);
-extract($args, EXTR_PREFIX_ALL, 'the'); 
-global $wholeModule; $wholeModule = !@$the_feature; // testing whole module? (suppress some test output)
-//if (@$the_scene) $the_variant = 0;
-if (@$the_module) $modules = explode(',', $the_module);
+foreach ($args as $k => $v) $T->$k = $v;
+$T->wholeModule = !@$T->feature; // testing whole module? (suppress some test output)
+
+//if (@$T->scene) $T->variant = 0;
+if (@$T->module) $modules = explode(',', $T->module);
 
 foreach($modules as $module) doModule($module, $menu = !@$args);
 if (!$menu) {
-  if (count($modules) > 1) report('OVERALL', $okAll, $noAll);
+  if (count($modules) > 1) report('OVERALL', $T->okAll, $T->noAll);
   insertMessage("<a href=\"sadmin/tests\">Test Menu</a>");
 }
 
@@ -41,9 +45,8 @@ if (!$menu) {
  * @param bool $menu: show just the menu
  */
 function doModule($module, $menu) {
-  global $ok, $no, $fails, $okAll, $noAll, $the_feature, $the_div, $programPath;
-  global $base_url, $overallResults;
-  $fails = $ok = $no = 0; // results counters
+  global $T;
+  $T->fails = $T->ok = $T->no = 0; // results counters
 
   $moduleName = strtoupper(basename($module));
   $path = DRUPAL_ROOT . "/$module"; // path to module directory
@@ -58,16 +61,16 @@ function doModule($module, $menu) {
     }
     if (strpos($compilation, 'ERROR ') !== FALSE or strpos($compilation, 'Fatal error') or strpos($compilation, 'Parse error') ) {
 /**/  die("<b class=\"err\">Gherkin Compiler error</b> compiling module $module (fix, go back, retry):<br>$compilation");
-      return report($moduleName, 0, "<a href=\"$compilerPath\">compile error</a>", $module, $the_div);
+      return report($moduleName, 0, "<a href=\"$compilerPath\">compile error</a>", $module, $T->div);
     }
   }
   $features = str_replace("$path/features/", '', str_replace('.feature', '', findFiles("$path/features", '/.*\.feature$/')));
   // foreach ($features = findFiles("$path", '/.*\.feature$/') as $i => $flnm) $features[$i] =  str_replace('.feature', '', basename($flnm));
   $featureCount = count($features);
-  if (@$the_feature) {
-    $features = array($the_feature);
-  } elseif (@$the_div and $featureCount > MAX_DIVLESS) {
-    $features = array_slice($features, ($the_div - 1) * DIV_SIZE, DIV_SIZE);
+  if (@$T->feature) {
+    $features = array($T->feature);
+  } elseif (@$T->div and $featureCount > MAX_DIVLESS) {
+    $features = array_slice($features, ($T->div - 1) * DIV_SIZE, DIV_SIZE);
   }
   $link = testLink('ALL', $module);
   if (@$menu) { // just show the choices
@@ -89,28 +92,24 @@ function doModule($module, $menu) {
   } else {
     $overallResults = array();
     foreach (array('error', 'warning', 'status') as $type) $overallResults[$type] = array();
-    foreach ($features as $feature) doTest($module, $feature);
+    foreach ($features as $feature) doTest($module, $feature, $overallResults);
+    
+    $lastNextLink = gotoError('', $T->fails);
+    $fix = str_replace('NEXT</a>', '</a><big><b>LAST</b></big>', $lastNextLink);
     foreach ($overallResults as $type => $one) foreach($one as $msg) {
-/**/  if ($type == 'error') $msg = color('ERRS: ' . print_r($msg, 1), 'test-error');
+      if ($type == 'status' and strpos($msg, 'NEXT')) $msg = str_replace($lastNextLink, $fix, $msg);
+      if ($type == 'error') $msg = color('ERRS: ' . pr($msg), 'test-error');
       \drupal_set_message($msg);
     }
     
-    $featureLink = @$the_feature ? ' (' . testLink($feature, $module, '', $feature) . ')' : '';
-    report($moduleName . $featureLink, $ok, $no, $module, $the_div);
+    $featureLink = @$T->feature ? ' (' . testLink($feature, $module, '', $feature) . ')' : '';
+    report($moduleName . $featureLink, $T->ok, $T->no, $module, $T->div);
   }
 }  
 
-function doTest($module, $feature) {
-///  debug(compact('module','feature'));
-  global $results, $user, $the_feature, $the_scene, $the_variant, $resumeAt, $skipToStep;
-  global $overallResults, $fails, $firstFailLink, $firstTestLink;
+function doTest($module, $feature, &$overallResults) {
+  global $T;
   
-/*  if (@$resumeAt and strpos($resumeAt, "$module:$feature:") === FALSE) {
-  u\deb("skipping $module:$feature: resumeAt=$resumeAt");
-    return; // not to the right feature yet
-  }
-  */
-
   include ($featureFilename = DRUPAL_ROOT . "/$module/test/$feature.test");
 
   $featureLink = testLink($feature, $module, '', $feature);
@@ -122,13 +121,13 @@ function doTest($module, $feature) {
 
   foreach ($matches[1] as $one) {
     list ($scene, $variant) = explode('_', $one);
-    if (@$the_scene) if ($scene != $the_scene) continue;
-    if (@$the_variant !== '') if ($variant != $the_variant) continue;
+    if (@$T->scene) if ($scene != $T->scene) continue;
+    if (@$T->variant !== '') if ($variant != $T->variant) continue;
 
 ///    debug("DOING $module:$feature:$one");
     //u\deb("DOING $module:$feature:$one");
     $saveSESSION = $_SESSION; $_SESSION = array(); // start each test with a clean slate
-    $results = array('PASS!');
+    $T->results = array('PASS!');
 /*    
     $mya = r\acct(); // save true account (that is running the tests), so we can restore it
     $t->$one(); // run one test
@@ -136,16 +135,16 @@ function doTest($module, $feature) {
 */
     // Display results are intermixed w debugging output, if any (so don't collect results before displaying)
 
-    $xfails = @$fails;
+    $xfails = @$T->fails;
     $t->$one(); // run one test
     $link = testLink($testName = substr($scene, 4), $module, '', $feature, $scene, $variant); // drop "test" from description
     $retryLink = ' ' . str_replace("$testName<", 'Retry1<', $link) . ' ';
-    if (!@$firstTestLink) $firstTestLink = $retryLink;
-    if ($fails != $xfails and !@$firstFailLink) $firstFailLink = $retryLink;
+    if (!@$T->firstTestLink) $T->firstTestLink = $retryLink;
+    if ($T->fails != $xfails and !@$T->firstFailLink) $T->firstFailLink = $retryLink;
 
-    $results[0] .= ".......... [$featureLink] $link";
-    $results[0] = color($results[0], 'pass');
-    drupal_set_message(join(PHP_EOL, $results));
+    $T->results[0] .= ".......... [$featureLink] $link";
+    $T->results[0] = color($T->results[0], 'pass');
+    drupal_set_message(join(PHP_EOL, $T->results));
 
     $msgs = @$_SESSION['messages'] ?: array();
     foreach (array('error', 'warning', 'status') as $one) {
@@ -154,36 +153,34 @@ function doTest($module, $feature) {
     
 //u\deb('before restore count overallResults:' . count($overallResults));
     $_SESSION = $saveSESSION;
-    //u\deb("done with $module:$feature:$one resumeAt=$resumeAt skipToStep=$skipToStep");
   }
-  //u\deb("done with $module:$feature resumeAt=$resumeAt skipToStep=$skipToStep");
 }
 
 function expect($bool) {
-  global $results;
-  global $ok, $no, $fails, $okAll, $noAll;
-  global $sceneTest, $sceneName;
+  global $T;
+  global $sceneTest;
 
   $step = htmlspecialchars($sceneTest->step); // make sure it displays properly
 
-  $where = $sceneName == 'Setup' ? "[Setup] " : '';
+  $where = $sceneTest->name == 'Setup' ? "[Setup] " : '';
   list ($result, $color) = $bool ? array('OK', 'success') : array('NO', 'fail');
-  $results[] = $result = color("$result: $where$step", $color);
+  $T->results[] = $result = color("$result: $where$step", $color);
   if ($bool) {
-    $ok++; $okAll++;
+    $T->ok++; $T->okAll++;
   } else {
-    $no++; $noAll++;
-    if (!strpos($results[0], 'FAIL')) {
-      $fails++;
-      $results[0] = gotoError('<br>FAIL', $fails);
+    $T->no++; $T->noAll++;
+    if (!strpos($T->results[0], 'FAIL')) {
+      $T->fails++;
+      $T->results[0] = gotoError('<br>FAIL', $T->fails);
     }
   }
 }
 
-function color($msg, $color) {
-  return "<pre class=\"test-$color\">$msg</pre>";
-}
+function color($msg, $color) {return "<pre class=\"test-$color\">$msg</pre>";}
 
+/**
+ * Insert a message at the top of the message list.
+ */
 function insertMessage($s, $type = 'status') {
 /**/  if (!is_string($s)) $s = print_r($s, 1);
   if (!@$_SESSION['messages'][$type]) $_SESSION['messages'][$type] = array();
@@ -191,9 +188,9 @@ function insertMessage($s, $type = 'status') {
 }
 
 function report($moduleName, $ok, $no, $module = '', $div = '') {
-  global $firstFailLink, $firstTestLink;
+  global $T;
   
-  $retryLink = @$firstFailLink ?: $firstTestLink;
+  $retryLink = @$T->firstFailLink ?: @$T->firstTestLink;
   
   $moduleName = testLink($moduleName, $module);
   if ($div) $moduleName .= ' ' . testLink("Div #$div", $module, $div);
@@ -216,9 +213,9 @@ EOF;
  * Return a link to the given module, div, feature, scene, or variant.
  */
 function testLink($description, $module, $div = '', $feature = '', $scene = '', $variant = '') {
-  global $programPath;
+  global $T;
 //  $description = str_replace('_0', '', $description); // omit first variant from description
-  return "<a href=\"$programPath?module=$module&div=$div&feature=$feature&scene=$scene&variant=$variant&restart=1\">$description</a>";
+  return "<a href=\"$T->programPath?module=$module&div=$div&feature=$feature&scene=$scene&variant=$variant&restart=1\">$description</a>";
 }
 
 function gotoError($title, $errorNum = 0) {
