@@ -62,7 +62,7 @@ doFeatures($steps, $features, $module, $testTemplate);
 doSteps($steps, $stepsText);
 if (LANG == 'JS') $stepsText .= '}';
 if (!file_put_contents($stepsFilename, $stepsText)) error("Cannot write stepsfile $stepsFilename.");
-/**/ echo "\n\n<br>Updated $stepsFilename -- Done. " . date('g:ia') . "\n";
+/**/ echo "\n\n<br>Updated $stepsFilename -- SUCCESS! Done. " . date('g:ia') . "\n";
 
 // END of program
 
@@ -394,7 +394,8 @@ function matrixRow($line) {
  *   | a2     | b2     | c2     |
  *   | a3     | b3     | c3     |
  * Any one or more spaces next to vertical bars are ignored.
- * If the first line has a star immediately after the final bar, the matrix is treated as an associative array.
+ * If the first line has a single star after the final bar, it is treated as the field list of an associative array.
+ * If the first line has a double star after the final bar, the field names are the first item on each following line.
  * 
  * @param array $lines: the remaining lines of the feature file
  *                      (RETURNED IMPLICIT) the remaining lines of the feature file, after handling the arg
@@ -405,20 +406,31 @@ function matrixArg(&$lines, &$matrixLines) {
   $res = $matrixLines = [];
   while (substr(trim(@$lines[0]), 0, 1) == '|') {
     $matrixLines[] = $line = trim(array_shift($lines));
-    if (!$res and substr($line, -1, 1) == '*') {
+    if (!$res and substr($line, -2, 2) == '**') {
+      $line = trim(substr($line, 0, strlen($line) - 2));
+      $assocV = TRUE;
+    } elseif (!$res and substr($line, -1, 1) == '*') {
       $line = trim(substr($line, 0, strlen($line) - 1));
-      $assoc = TRUE;
+      $assocH = TRUE;
     }
     $row = matrixRow($line);
     if (!$fldCount = count($row)) error('Bad multiline argument syntax: ' . $line);
     if (@$xfldCount and $fldCount != $xfldCount) error('Your field count is off in line: ' . $line);
     $xfldCount = $fldCount;
-//    if ($assoc and !$res) foreach ($row as $k) if 
-    $res[] = (@$assoc and $res) ? rayCombine($res[0], $row) : $row;
+//    if ($assocH and !$res) foreach ($row as $k) if 
+    $res[] = (@$assocH and $res) ? rayCombine($res[0], $row) : $row;
   }
-  if (@$assoc) unset($res[0]); // discard the key array
+  if (@$assocH) unset($res[0]); // discard the horizontal array's key array (it's included in each row)
   if (!$res) return ''; else $res = array_values($res);
-  
+  if (@$assocV) { // interpret vertical array of records
+    $rowCnt = count($res[0]);
+    $new = [];
+    foreach ($res as $one) {
+      $k = $one[0];
+      for ($i = 1; $i < $rowCnt; $i++) $new[$i - 1][$k] = $one[$i];
+    }
+    $res = $new;
+  }
   return LANG == 'JS' ? jsonEncode($res) : var_export($res, TRUE);
 }
 

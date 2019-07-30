@@ -1,3 +1,6 @@
+2019-07-30 feature/sideways-array
+. use ** instead of * to put your field names in the left column instead of the top row.
+
 2019-07-19 feature/debugging-aids
 . now tells you when you're on the final failed test in the group you ran
 . isolates nearly all previous global variables into a single global object $T

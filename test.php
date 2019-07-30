@@ -59,7 +59,7 @@ function doModule($module, $menu) {
     } else {
       $compilation = file_get_contents($compilerPath); // recompile tests first
     }
-    if (strpos($compilation, 'ERROR ') !== FALSE or strpos($compilation, 'Fatal error') or strpos($compilation, 'Parse error') ) {
+    if (strpos($compilation, 'ERROR ') !== FALSE or strpos($compilation, 'Fatal error') or strpos($compilation, 'Parse error') or strpos($compilation, 'SUCCESS!') === FALSE) {
 /**/  die("<b class=\"err\">Gherkin Compiler error</b> compiling module $module (fix, go back, retry):<br>$compilation");
       return report($moduleName, 0, "<a href=\"$compilerPath\">compile error</a>", $module, $T->div);
     }
