@@ -1,7 +1,11 @@
 <?php
+use CG\DB as db;
+
+require_once R_ROOT . '/cg-db.inc';
+
 /**
  * @file
- * Drupal Acceptance Test Program
+ * Common Good Acceptance Test Program
  * Call as include file or stand-alone:
  *
  * INCLUDE FILE (parameters set before include)
@@ -32,10 +36,7 @@ $T->wholeModule = !@$T->feature; // testing whole module? (suppress some test ou
 if (@$T->module) $modules = explode(',', $T->module);
 
 foreach($modules as $module) doModule($module, $menu = !@$args);
-if (!$menu) {
-  if (count($modules) > 1) report('OVERALL', $T->okAll, $T->noAll);
-  insertMessage("<a href=\"sadmin/tests\">Test Menu</a>");
-}
+if (!$menu and count($modules) > 1) report('OVERALL', $T->okAll, $T->noAll);
 
 // END OF PROGRAM
 
@@ -90,16 +91,21 @@ function doModule($module, $menu) {
 
     insertMessage("<h1 class=\"test-hdr\">$moduleName: $link</h1>" . join('', $menu));
   } else {
-    $overallResults = array();
-    foreach (array('error', 'warning', 'status') as $type) $overallResults[$type] = array();
-    foreach ($features as $feature) doTest($module, $feature, $overallResults);
+/*    $overallResults = array();
+    foreach (array('error', 'warning', 'status') as $type) $overallResults[$type] = array(); */
+    foreach ($features as $feature) doTest($module, $feature);
     
     $lastNextLink = gotoError('', $T->fails);
     $fix = str_replace('NEXT</a>', '</a><big><b>LAST</b></big>', $lastNextLink);
-    foreach ($overallResults as $type => $one) foreach($one as $msg) {
-      if ($type == 'status' and strpos($msg, 'NEXT')) $msg = str_replace($lastNextLink, $fix, $msg);
-      if ($type == 'error') $msg = color('ERRS: ' . pr($msg), 'test-error');
-      \drupal_set_message($msg);
+    $types = ray('status error warning');
+    $q = db\q('select * FROM test WHERE type IN (:types)', compact('types'));
+    while ($row = $q->fetchAssoc()) {
+      extract($row);
+//    foreach ($overallResults as $type => $one) foreach($one as $msg) {
+      if ($type == 'status' and strpos($value, 'NEXT')) $value = str_replace($lastNextLink, $fix, $value);
+      if ($type == 'error') $value = color('ERRS: ' . pr($value), 'test-error');
+      db\update('test', compact(ray('id type value')), 'id');
+//      \drupal_set_message($value);
     }
     
     $featureLink = @$T->feature ? ' (' . testLink($feature, $module, '', $feature) . ')' : '';
@@ -107,7 +113,7 @@ function doModule($module, $menu) {
   }
 }  
 
-function doTest($module, $feature, &$overallResults) {
+function doTest($module, $feature) {
   global $T;
   
   include ($featureFilename = DRUPAL_ROOT . "/$module/test/$feature.test");
@@ -147,9 +153,9 @@ function doTest($module, $feature, &$overallResults) {
     drupal_set_message(join(PHP_EOL, $T->results));
 
     $msgs = @$_SESSION['messages'] ?: array();
-    foreach (array('error', 'warning', 'status') as $one) {
+/*    foreach (array('error', 'warning', 'status') as $one) {
       foreach ((@$msgs[$one] ?: array()) as $msg) $overallResults[$one][] = $msg;
-    }
+    } */
     
 //u\deb('before restore count overallResults:' . count($overallResults));
     $_SESSION = $saveSESSION;
@@ -181,10 +187,10 @@ function color($msg, $color) {return "<pre class=\"test-$color\">$msg</pre>";}
 /**
  * Insert a message at the top of the message list.
  */
-function insertMessage($s, $type = 'status') {
-/**/  if (!is_string($s)) $s = print_r($s, 1);
-  if (!@$_SESSION['messages'][$type]) $_SESSION['messages'][$type] = array();
-  array_unshift($_SESSION['messages'][$type], $s);
+function insertMessage($value, $type = 'status') {
+  if (!is_string($value)) $value = pr($value);
+  $id = (db\min('id', 'test') ?: 0) - 1;
+  db\insert('test', compact(ray('id type value')), 'id');
 }
 
 function report($moduleName, $ok, $no, $module = '', $div = '') {

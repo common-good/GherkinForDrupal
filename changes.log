@@ -1,3 +1,6 @@
+2019-08-05 feature/store-msgs
+. test messages are now stored in the test table rather than in drupal's session variable
+
 2019-07-30 feature/sideways-array
 . use ** instead of * to put your field names in the left column instead of the top row.
 
