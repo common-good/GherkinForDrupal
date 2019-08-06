@@ -1,5 +1,6 @@
 <?php
 use CG\DB as db;
+use CG\Util as u;
 
 require_once R_ROOT . '/cg-db.inc';
 
@@ -167,6 +168,7 @@ function color($msg, $color) {return "<pre class=\"test-$color\">$msg</pre>";}
 function insertMessage($value, $where = 'top') {
   $type = 'status';
   if (!is_string($value)) $value = pr($value);
+  $value = u\noUnprintable($value);
   if ($where == 'top') $id = min(0, db\min('id', 'test')) - 1;
   if (!db\insert('test', @compact(ray('id type value')), 'id')) die('failed to insert into test table');
 }
