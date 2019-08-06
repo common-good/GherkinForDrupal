@@ -6,12 +6,10 @@ require_once R_ROOT . '/cg-db.inc';
 /**
  * @file
  * Common Good Acceptance Test Program
- * Call as include file or stand-alone:
+ * Call as include file (parameters set before include)
+ * Expects array $modules: list of module paths to display features for (relative to this file's parent)
  *
- * INCLUDE FILE (parameters set before include)
- * @param array $modules: list of module paths to display features for (relative to this file's parent)
- *
- * STAND-ALONE (query parameters in URL)
+ * query parameters in URL:
  * @param string $module: path of test module to run (relative to this file's parent)
  * @param string $feature: which specific feature within that module (defaults to all)
  * @param string $scene: which specific scenario within that feature (defaults to all)
@@ -79,7 +77,6 @@ function doModule($module, $menu) {
     $f = 1;
     $div = 0;
     foreach ($features as $feature) {
-//      if ($featureCount > MAX_DIVLESS and $f == 1) {
       if ($f == 1) {
         $div++;
         $divLink = testLink("Div #$div", $module, $div);
@@ -91,8 +88,6 @@ function doModule($module, $menu) {
 
     insertMessage("<h1 class=\"test-hdr\">$moduleName: $link</h1>" . join('', $menu));
   } else {
-/*    $overallResults = array();
-    foreach (array('error', 'warning', 'status') as $type) $overallResults[$type] = array(); */
     foreach ($features as $feature) doTest($module, $feature);
     
     $lastNextLink = gotoError('', $T->fails);
@@ -101,11 +96,9 @@ function doModule($module, $menu) {
     $q = db\q('select * FROM test WHERE type IN (:types)', compact('types'));
     while ($row = $q->fetchAssoc()) {
       extract($row);
-//    foreach ($overallResults as $type => $one) foreach($one as $msg) {
       if ($type == 'status' and strpos($value, 'NEXT')) $value = str_replace($lastNextLink, $fix, $value);
       if ($type == 'error') $value = color('ERRS: ' . pr($value), 'test-error');
       db\update('test', compact(ray('id type value')), 'id');
-//      \drupal_set_message($value);
     }
     
     $featureLink = @$T->feature ? ' (' . testLink($feature, $module, '', $feature) . ')' : '';
@@ -120,7 +113,6 @@ function doTest($module, $feature) {
 
   $featureLink = testLink($feature, $module, '', $feature);
   $classname = basename($module) . str_replace('-', '', $feature);
-///  print_r(compact('module','feature','classname')); die('in test');
   $t = new $classname();
   $s = file_get_contents($featureFilename);
   preg_match_all('/function (test.*?)\(/sm', $s, $matches);
@@ -130,15 +122,8 @@ function doTest($module, $feature) {
     if (@$T->scene) if ($scene != $T->scene) continue;
     if (@$T->variant !== '') if ($variant != $T->variant) continue;
 
-///    debug("DOING $module:$feature:$one");
-    //u\deb("DOING $module:$feature:$one");
-    $saveSESSION = $_SESSION; $_SESSION = array(); // start each test with a clean slate
     $T->results = array('PASS!');
-/*    
-    $mya = r\acct(); // save true account (that is running the tests), so we can restore it
-    $t->$one(); // run one test
-    r\acct::setDefault($mya); // restore tester's account
-*/
+
     // Display results are intermixed w debugging output, if any (so don't collect results before displaying)
 
     $xfails = @$T->fails;
@@ -150,15 +135,7 @@ function doTest($module, $feature) {
 
     $T->results[0] .= ".......... [$featureLink] $link";
     $T->results[0] = color($T->results[0], 'pass');
-    drupal_set_message(join(PHP_EOL, $T->results));
-
-    $msgs = @$_SESSION['messages'] ?: array();
-/*    foreach (array('error', 'warning', 'status') as $one) {
-      foreach ((@$msgs[$one] ?: array()) as $msg) $overallResults[$one][] = $msg;
-    } */
-    
-//u\deb('before restore count overallResults:' . count($overallResults));
-    $_SESSION = $saveSESSION;
+    insertMessage(join(PHP_EOL, $T->results), 'bottom');
   }
 }
 
@@ -185,12 +162,13 @@ function expect($bool) {
 function color($msg, $color) {return "<pre class=\"test-$color\">$msg</pre>";}
 
 /**
- * Insert a message at the top of the message list.
+ * Insert a message at the top or bottom of the message list.
  */
-function insertMessage($value, $type = 'status') {
+function insertMessage($value, $where = 'top') {
+  $type = 'status';
   if (!is_string($value)) $value = pr($value);
-  $id = (db\min('id', 'test') ?: 0) - 1;
-  db\insert('test', compact(ray('id type value')), 'id');
+  if ($where == 'top') $id = min(0, db\min('id', 'test')) - 1;
+  if (!db\insert('test', @compact(ray('id type value')), 'id')) die('failed to insert into test table');
 }
 
 function report($moduleName, $ok, $no, $module = '', $div = '') {
