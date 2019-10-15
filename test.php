@@ -26,7 +26,7 @@ global $T; $T = new stdClass();
 $T->okAll = $T->noAll = 0; // overall results counters
 $T->programPath = $_SERVER['REDIRECT_URL'];
 $T->feature = $T->div = $T->scene = $T->variant = NULL; // allows for arbitrarily selective testing
-parse_str($_SERVER['QUERY_STRING'], $args);
+mb_parse_str($_SERVER['QUERY_STRING'], $args);
 foreach ($args as $k => $v) $T->$k = $v;
 $T->wholeModule = !@$T->feature; // testing whole module? (suppress some test output)
 

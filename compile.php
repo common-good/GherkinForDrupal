@@ -374,7 +374,7 @@ function fixArg($arg, $quote = FALSE, $arrayOk = FALSE) {
  * @param string $line: the line to parse (starting with '|', spaces already trimmed)
  */
 function matrixRow($line) {
-  if (substr($line, -1, 1) != '|') error('Missing closing vertical bar on line: "@line".', compact('line'));
+  if (substr($line, -1, 1) != '|') error('Missing closing vertical bar on line: "!line".', compact('line'));
   $line = squeeze($line, '|');
   $res = explode('|', $line);
   for ($i = count($res) - 2; $i >= 0; $i--) { // for all but last element
