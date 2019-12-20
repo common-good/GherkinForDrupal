@@ -453,7 +453,7 @@ function standardSubs() {
     $subs[$k] = $r;
   }
   foreach ([20, 32] as $i) $subs["%whatever$i"] = randomString($i);
-  $specialSubs['%name'] = randomString(20); // suitable for email address
+  $subs['%_'] = ' ';
 
   return $subs;
 }
@@ -647,7 +647,7 @@ function purify($s) {
  */
 function doConstants($string) {
   preg_match_all("/%([A-Z_]+)/ms", $string, $matches);
-  foreach ($matches[1] as $one) $map["%$one"] = constant($one);
+  foreach ($matches[1] as $one) if (defined($one)) $map["%$one"] = constant($one);
   return strtr($string, @$map ?: []);
 }
 

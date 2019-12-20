@@ -30,6 +30,7 @@ This Gherkin compiler makes several extensions to the standard Gherkin language:
  * You can include a special first scenario headed "Setup:" instead of "Scenario:" that will be run
    at the start of each scenario to set things up. Typically this will include "Given" (and "And" or "When") statements, but you can also include "Then"s (and "And"s) to test the setup.
  * You can also use magic "%" arguments like the following:
+     %_ - space (useful at start or end of a matrix argument)
 	   %random (or %whatever) - a random-length, random string of characters without double quotes or percents
 	   %random3 (or %whatever3) - same as above. The string will stay the same for a whole scenario. Use any integer up to 3.
 	   %phone5 (or %number) - a random US phone number like +12223334444 (only "number" is implemented, not "phone")
