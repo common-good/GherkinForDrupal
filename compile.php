@@ -366,7 +366,8 @@ function fixArg($arg, $quote = FALSE, $arrayOk = FALSE) {
   }
   
 /**/  if (substr($arg, 0, 1) == '%') error("Unhandled percent arg = $arg" . print_r(debug_backtrace(),1));
-  return (is_numeric($arg) or !$quote) ? $arg : ("'" . str_replace("'", "\\'", $arg) . "'");
+
+  return (!$quote or preg_match('/^(0|[1-9]\\d*)$/', $arg)) ? $arg : ("'" . str_replace("'", "\\'", $arg) . "'"); // avoid implied octal (integers starting with 0)
 }
 
 /**
