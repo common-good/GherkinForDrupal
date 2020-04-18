@@ -644,10 +644,11 @@ function purify($s) {
  * Translate constant parameters in a string.
  * @param string $string: the string to fix
  * @return string: the string with constant names (preceded by %) replaced by their values
- * Constants must be uppercase and underscores (for example, if A_TIGER is defined as 1, %A_TIGER gets replaced with "1")
+ * Constants must be uppercase and underscores -- and digits as long as a digit isn't first
+ * (for example, if A_TIGER is defined as 1, %A_TIGER gets replaced with "1")
  */
 function doConstants($string) {
-  preg_match_all("/%([A-Z_]+)/ms", $string, $matches);
+  preg_match_all("/%([A-Z_]+[A-Z0-9_]*)/ms", $string, $matches);
   foreach ($matches[1] as $one) if (defined($one)) $map["%$one"] = constant($one);
   return strtr($string, @$map ?: []);
 }
