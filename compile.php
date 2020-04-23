@@ -365,6 +365,7 @@ function fixArg($arg, $quote = FALSE, $arrayOk = FALSE) {
     if ($arg === '') error("Bad expression in arg: $arg0");
   }
   
+  if (preg_match('/^%[^a-z\(]/i', $arg)) return $arg; // starts with percent but not a parameter
 /**/  if (substr($arg, 0, 1) == '%') error("Unhandled percent arg = $arg" . print_r(debug_backtrace(),1));
 
   return (!$quote or preg_match('/^(0|[1-9]\\d*)$/', $arg)) ? $arg : ("'" . str_replace("'", "\\'", $arg) . "'"); // avoid implied octal (integers starting with 0)
