@@ -519,11 +519,15 @@ function timeSubs($s) {
     'tomorrow' => '',
     'now' => '',
     'daystart' => '',
+    'yearAgo' => '',
+    'monthAgo' => '',
   ];
   $times = [
     'yesterday' => strtotime('-1 day', NOW),
     'tomorrow' => strtotime('+1 day', NOW),
     'daystart' => TODAY,
+    'yearAgo' => strtotime('-1 year', TODAY),
+    'monthAgo' => strtotime('-1 month', TODAY),
     'lastm' => Monthday1(Monthday1() - 1),
     'thism' => Monthday1(),
   ];
