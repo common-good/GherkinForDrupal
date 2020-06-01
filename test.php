@@ -46,10 +46,11 @@ if (!$menu and count($modules) > 1) report('OVERALL', $T->okAll, $T->noAll);
 function doModule($module, $menu) {
   global $T;
   $T->fails = $T->ok = $T->no = 0; // results counters
+  $timezone = date_default_timezone_get();
 
   $moduleName = strtoupper(basename($module));
   $path = DRUPAL_ROOT . "/$module"; // path to module directory
-  $compilerPath = preg_replace('~:[0-9]*/~', ':/', LOCAL_URL . "/vendor/gherkin/compile.php?lang=PHP&path=$path"); 
+  $compilerPath = preg_replace('~:[0-9]*/~', ':/', LOCAL_URL . "/vendor/gherkin/compile.php?lang=PHP&path=$path&timezone=$timezone"); 
 
   if (!$menu) {
     if (isDEV) {

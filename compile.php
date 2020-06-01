@@ -15,10 +15,12 @@
  
 $SHOWERRORS = TRUE;
 error_reporting($SHOWERRORS ? E_ALL : 0); ini_set('display_errors', $SHOWERRORS); ini_set('display_startup_errors', $SHOWERRORS);
+date_default_timezone_set(@$_GET['timezone']); // avoid time discrepancies
+
 define('TESTING', 1); // this should always be set to 1
-date_default_timezone_set('America/New_York'); // including timezone in strtotime gets date wrong
 define('TODAY', strtotime('today')); // align times, to make tests easier (need timezone of developer, because this is called indirectly)
 define('NOW', time());
+
 
 list ($compilerPath, $lang, $path) = @$argv ?: ['./', strtoupper(@$_GET['lang']), @$_GET['path']];
 if (!in_array($lang, ['PHP', 'JS'])) error('Language parameter (lang) must be PHP or JS.');
@@ -473,24 +475,10 @@ function subAgo($s, $fmt = '', $time = NOW) {
   $periods = array('min' => 'minutes', 'n' => 'minutes', 'h' => 'hours', 'd' => 'days', 'w' => 'weeks', 'm' => 'months', 'y' => 'years');
   $period = $periods[$p];
   $time0 = $time;
-  $time = $period == 'months' ? plusMonths($n, $time) : strtotime("$n $period", $time);
+  $time = strtotime("$n $period", $time);
   $when = $fmt ? strftime($fmt, $time) : $time;
 ///  if ($fmt == '%Y%m%d') print_r(compact(explode(' ', 's fmt time all a mod n p m period time0 when')));
   return str_replace($all, $when, $s);
-}
-
-/**
- * Return the time with some number of months added (or subtracted)
- * @param int $months: how many months to add (may be negative)
- * @param int $time: starting time (defaults to current time)
- * @return int: the resulting time, same day of month if possible, otherwise last day of month.
- * strtotime() should do this, but it actually returns March 2nd for strtotime('-1 month', strtotime('3/30/2014'))
- */
-function plusMonths($months, $time = NOW) {
-  if ($months > 0) $months = '+' . $months;
-  $res = strtotime($months . 'months', $time);
-  $day = date('d', $res);
-  return $day == date('d', $time) ? $res : strtotime(-$day, $res); // use last day of month if same day fails
 }
 
 /**
