@@ -67,8 +67,9 @@ function doModule($module, $menu) {
   $features = str_replace("$path/features/", '', str_replace('.feature', '', findFiles("$path/features", '/.*\.feature$/')));
   // foreach ($features = findFiles("$path", '/.*\.feature$/') as $i => $flnm) $features[$i] =  str_replace('.feature', '', basename($flnm));
   $featureCount = count($features);
-  if (@$T->feature) {
-    $features = array($T->feature);
+  $Tf = @$T->feature; // remember the requested feature, if any
+  if ($Tf) {
+    $features = array($Tf);
   } elseif (@$T->div and $featureCount > MAX_DIVLESS) {
     $features = array_slice($features, ($T->div - 1) * DIV_SIZE, DIV_SIZE);
   }
@@ -89,7 +90,7 @@ function doModule($module, $menu) {
 
     insertMessage("<h1 class=\"test-hdr\">$moduleName: $link</h1>" . join('', $menu));
   } else {
-    foreach ($features as $feature) doTest($module, $feature);
+    foreach ($features as $T->feature) doTest($module, $T->feature);
     
     $lastNextLink = gotoError('', $T->fails);
     $fix = str_replace('NEXT</a>', '</a><big><b>LAST</b></big>', $lastNextLink);
@@ -102,7 +103,7 @@ function doModule($module, $menu) {
       db\update('test', compact(ray('id type value')), 'id');
     }
     
-    $featureLink = @$T->feature ? ' (' . testLink($feature, $module, '', $feature) . ')' : '';
+    $featureLink = $Tf ? ' (' . testLink($Tf, $module, '', $Tf) . ')' : '';
     report($moduleName . $featureLink, $T->ok, $T->no, $module, $T->div);
   }
 }  
