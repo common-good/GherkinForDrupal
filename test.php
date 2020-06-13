@@ -28,12 +28,12 @@ $T->programPath = $_SERVER['REDIRECT_URL'];
 $T->feature = $T->div = $T->scene = $T->variant = NULL; // allows for arbitrarily selective testing
 mb_parse_str($_SERVER['QUERY_STRING'], $args);
 foreach ($args as $k => $v) $T->$k = $v;
-$T->wholeModule = !@$T->feature; // testing whole module? (suppress some test output)
+$T->wholeModule = !nn($T->feature); // testing whole module? (suppress some test output)
 
 //if (@$T->scene) $T->variant = 0;
-if (@$T->module) $modules = explode(',', $T->module);
+if (nn($T->module)) $modules = explode(',', $T->module);
 
-foreach($modules as $module) doModule($module, $menu = !@$args);
+foreach($modules as $module) doModule($module, $menu = !nn($args));
 if (!$menu and count($modules) > 1) report('OVERALL', $T->okAll, $T->noAll);
 
 // END OF PROGRAM
@@ -67,14 +67,14 @@ function doModule($module, $menu) {
   $features = str_replace("$path/features/", '', str_replace('.feature', '', findFiles("$path/features", '/.*\.feature$/')));
   // foreach ($features = findFiles("$path", '/.*\.feature$/') as $i => $flnm) $features[$i] =  str_replace('.feature', '', basename($flnm));
   $featureCount = count($features);
-  $Tf = @$T->feature; // remember the requested feature, if any
+  $Tf = nn($T->feature); // remember the requested feature, if any
   if ($Tf) {
     $features = array($Tf);
-  } elseif (@$T->div and $featureCount > MAX_DIVLESS) {
+  } elseif (nn($T->div) and $featureCount > MAX_DIVLESS) {
     $features = array_slice($features, ($T->div - 1) * DIV_SIZE, DIV_SIZE);
   }
   $link = testLink('ALL', $module);
-  if (@$menu) { // just show the choices
+  if (nn($menu)) { // just show the choices
     $menu = array();
     $f = 1;
     $div = 0;
@@ -121,19 +121,19 @@ function doTest($module, $feature) {
 
   foreach ($matches[1] as $one) {
     list ($scene, $variant) = explode('_', $one);
-    if (@$T->scene) if ($scene != $T->scene) continue;
-    if (@$T->variant !== '') if ($variant != $T->variant) continue;
+    if (nn($T->scene)) if ($scene != $T->scene) continue;
+    if (nn($T->variant) !== '') if ($variant != $T->variant) continue;
 
     $T->results = array('PASS!');
 
     // Display results are intermixed w debugging output, if any (so don't collect results before displaying)
 
-    $xfails = @$T->fails;
+    $xfails = nn($T->fails);
     $t->$one(); // run one test
     $link = testLink($testName = substr($scene, 4), $module, '', $feature, $scene, $variant); // drop "test" from description
     $retryLink = ' ' . str_replace("$testName<", 'Retry1<', $link) . ' ';
-    if (!@$T->firstTestLink) $T->firstTestLink = $retryLink;
-    if ($T->fails != $xfails and !@$T->firstFailLink) $T->firstFailLink = $retryLink;
+    if (!nn($T->firstTestLink)) $T->firstTestLink = $retryLink;
+    if ($T->fails != $xfails and !nn($T->firstFailLink)) $T->firstFailLink = $retryLink;
 
     $T->results[0] .= ".......... [$featureLink] $link";
     $T->results[0] = color($T->results[0], 'pass');
@@ -169,14 +169,15 @@ function color($msg, $color) {return "<pre class=\"test-$color\">$msg</pre>";}
 function insertMessage($value, $where = 'top') {
   $type = 'status';
   if (!is_string($value)) $value = pr($value);
-  if ($where == 'top') $id = min(0, db\min('id', 'test')) - 1;
-  if (!db\insert('test', @compact(ray('id type value')), 'id')) die('failed to insert into test table');
+  $info = compact(ray('type value'));
+  if ($where == 'top') $info['id'] = min(0, db\min('id', 'test')) - 1;
+/**/  if (!db\insert('test', $info, 'id')) die('failed to insert into test table');
 }
 
 function report($moduleName, $ok, $no, $module = '', $div = '') {
   global $T;
   
-  $retryLink = @$T->firstFailLink ?: @$T->firstTestLink;
+  $retryLink = nn($T->firstFailLink) ?: nn($T->firstTestLink);
   
   $moduleName = testLink($moduleName, $module);
   if ($div) $moduleName .= ' ' . testLink("Div #$div", $module, $div);
