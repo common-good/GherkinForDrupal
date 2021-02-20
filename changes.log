@@ -1,3 +1,6 @@
+2021-02029 feature/server-uri
+. changed REDIRECT_URL (which doesn't work on some machines) to BASE_URL plus REQUEST_URI
+
 2020-06-01 feature/fix-time
 . generalized handling of timezone so developers anywhere can run tests
 . fixed bug in subAgo, so time increment handling in tests matches handling in the regular code

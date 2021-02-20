@@ -24,7 +24,7 @@ ini_set('max_execution_time', 0); // don't ever timeout when testing
 global $T; $T = new stdClass();
 
 $T->okAll = $T->noAll = 0; // overall results counters
-$T->programPath = $_SERVER['REDIRECT_URL'];
+$T->programPath = BASE_URL . '/' . strstr($_SERVER['REQUEST_URI'] . '?', '?', TRUE);
 $T->feature = $T->div = $T->scene = $T->variant = NULL; // allows for arbitrarily selective testing
 mb_parse_str($_SERVER['QUERY_STRING'], $args);
 foreach ($args as $k => $v) $T->$k = $v;
