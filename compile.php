@@ -380,15 +380,12 @@ function fixArg($arg, $quote = FALSE, $arrayOk = FALSE) {
 function matrixRow($line) {
   if (substr($line, -1, 1) != '|') error('Missing closing vertical bar on line: "!line".', compact('line'));
   $line = squeeze($line, '|');
+  $line = str_replace('%|', "\t", $line); // temporarily hide literal vertical bar
   $res = explode('|', $line);
-  for ($i = count($res) - 2; $i >= 0; $i--) { // for all but last element
-    $v = $res[$i]; // do not trim yet
-    if (substr($v, -1, 1) == '%') {
-      $res[$i] = substr($v, 0, strlen($v) - 1) . $res[$i + 1];
-      unset($res[$i + 1]);
-    }
+  foreach ($res as $i => $v) {
+    $v = str_replace("\t", '|', $v); // put the bar back (if any)
+    $res[$i] = fixArg(trim($v), FALSE, TRUE);
   }
-  for ($i = 0; $i < count($res); $i++) $res[$i] = fixArg(trim($res[$i]), FALSE, TRUE);
   return $res;
 }
 
