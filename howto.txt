@@ -31,13 +31,12 @@ This Gherkin compiler makes several extensions to the standard Gherkin language:
    at the start of each scenario to set things up. Typically this will include "Given" (and "And" or "When") statements, but you can also include "Then"s (and "And"s) to test the setup.
  * You can also use magic "%" arguments like the following:
      %_ - space (useful at start or end of a matrix argument)
+     %| - a literal vertical bar (not a matrix argument separator)
 	   %random (or %whatever) - a random-length, random string of characters without double quotes or percents
 	   %random3 (or %whatever3) - same as above. The string will stay the same for a whole scenario. Use any integer up to 3.
 	   %phone5 (or %number) - a random US phone number like +12223334444 (only "number" is implemented, not "phone")
 	   %today - today's date, formatted 
-	   %today-20d - 20 days ago (any integer 1 to 20)
-	   %today-20w - 20 weeks ago
-	   %today-20m - 20 months ago
+	   %today-20d - 20 days ago (any integer 1 to 20). Similarly n, h, w, m, y: for minutes, hours, weeks, months, years
 	   %today+20d - 20 days from now
      same for %yesterday, %tomorrow, %yesterday+20d, etc. (There are additional date formats not listed here.)
 	   %CONSTANT_NAME - any defined constant (document any use of these, in the feature header, unless they self-explain)
