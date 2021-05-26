@@ -18,9 +18,8 @@ error_reporting($SHOWERRORS ? E_ALL : 0); ini_set('display_errors', $SHOWERRORS)
 date_default_timezone_set(@$_GET['timezone']); // avoid time discrepancies
 
 define('TESTING', 1); // this should always be set to 1
-define('TODAY', strtotime('today')); // align times, to make tests easier (need timezone of developer, because this is called indirectly)
-define('NOW', time());
-
+define('NOW', @$_GET['time']);
+define('TODAY', strtotime('today', NOW)); // align times, to make tests easier (need timezone of developer for strtotime('today') etc, because this is called indirectly)
 
 list ($compilerPath, $lang, $path) = @$argv ?: ['./', strtoupper(@$_GET['lang']), @$_GET['path']];
 if (!in_array($lang, ['PHP', 'JS'])) error('Language parameter (lang) must be PHP or JS.');
@@ -380,7 +379,8 @@ function fixArg($arg, $quote = FALSE, $arrayOk = FALSE) {
 function matrixRow($line) {
   if (substr($line, -1, 1) != '|') error('Missing closing vertical bar on line: "!line".', compact('line'));
   $line = squeeze($line, '|');
-  $line = str_replace('%|', "\t", $line); // temporarily hide literal vertical bar
+  $line = str_replace("\t", '  ', $line); // make sure we don't get confused by spurious (tab) white space
+  $line = str_replace('%|', "\t", $line); // temporarily hide literal vertical bar as a tab
   $res = explode('|', $line);
   foreach ($res as $i => $v) {
     $v = str_replace("\t", '|', $v); // put the bar back (if any)
