@@ -680,8 +680,8 @@ function parseScenario(&$steps, $testFunction, $lines) {
       $stepFunction = lcfirst(preg_replace("/$argPatterns|[^A-Z]/msi", '', ucwords($tail)));
       $step = str_replace("'", "\\'", "$line$matrixLines");
       $result .= LANG == 'PHP'
-      ? "    \$testOnly = $isThen;\n    \$this->step = '$step';\n    expect($stepFunction($args));\n"
-      : "    steps.testOnly = $isThen;\n    expect(steps.$stepFunction($args)).toBe(true);\n";
+      ? "    list(\$testOnly, \$this->state, \$this->step) = [$isThen, '$state', '$step'];\n    expect($stepFunction($args));\n"
+      : "    steps.testOnly = $isThen;\n    steps.state = '$state';\n    expect(steps.$stepFunction($args)).toBe(true);\n";
       
       $testFuncQualified = str_replace('- test', '', str_replace('- feature', '', "$FEATURE_NAME - $testFunction"));
       $errArgs = compact(ray('stepFunction,FEATURE_LONGNAME,line')); // for error reporting, just in case 
