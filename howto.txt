@@ -86,6 +86,10 @@ Once you have finished coding the steps, run the tests.
 For PHP:
 . Copy test.php to your program directory.
 . Browse to path_to_your_program_directory/test.php?lang=programming-language&path=path-to-program-folder
+. These variables are accessible to your program:
+  - $T->X where X is feature, div, module, scene, variant
+  - $testOnly
+  - $sceneTest->X where X is feature, module, name, state (Given, When, or Then), func
 
 For JS / Jasmine / Karma:
 . Type the following at your program directory prompt: path-to/karma/bin/karma start
