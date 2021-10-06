@@ -466,7 +466,7 @@ function standardSubs() {
  * @param int $time: base *nix time (defaults to now)
  */ 
 function subAgo($s, $fmt = '', $time = NOW) {
-  if (!preg_match('/(%[a-z]+)((-\d+|\+\d+)([a-z]+))?/i', $s, $m)) error("Bad time sub: $s (fmt = $fmt)");
+  if (!preg_match('/(%[a-z0]+)((-\d+|\+\d+)([a-z]+))?/i', $s, $m)) error("Bad time sub: $s (fmt = $fmt)");
   list ($all, $a, $mod, $n, $p) = @$m[2] ? $m : [$m[0], $m[1], '+0d', '+0', 'd'];
 
   $periods = array('min' => 'minutes', 'n' => 'minutes', 'h' => 'hours', 'd' => 'days', 'w' => 'weeks', 'm' => 'months', 'y' => 'years');
@@ -499,11 +499,11 @@ function timeSubs($s) {
     'lastm' => '',
     'thism' => '',
     'todayn' => '%Y%m%d',
-    'today' => '',
+    'today' => '', // deprecated (use now)
     'yesterday' => '',
     'tomorrow' => '',
     'now' => '',
-    'daystart' => '',
+    'daystart' => '', // deprecated (use now0)
     'yearAgo' => '',
     'monthAgo' => '',
   ];
@@ -511,15 +511,19 @@ function timeSubs($s) {
     'yesterday' => strtotime('-1 day', NOW),
     'tomorrow' => strtotime('+1 day', NOW),
     'daystart' => TODAY,
-    'yearAgo' => strtotime('-1 year', TODAY),
-    'monthAgo' => strtotime('-1 month', TODAY),
+    'yearAgo' => strtotime('-1 year', NOW),
+    'monthAgo' => strtotime('-1 month', NOW),
     'lastm' => Monthday1(Monthday1() - 1),
     'thism' => Monthday1(),
   ];
   foreach (['lastmy', 'lastmd', 'lastmdy'] as $k) $times[$k] = $times['lastm'];
   
   foreach ($fmts as $k => $fmt) {
-    while (strpos($s, "%$k") !== FALSE) $s = subAgo($s, $fmt, @$times[$k] ?: NOW); // might have multiple variations
+    while (($i = strpos($s, "%$k")) !== FALSE) {
+      $tm = @$times[$k] ?: NOW;
+      if (strpos($s, "%$k" . '0') === $i) $tm = strtotime('today', $tm); // "0" means use start of day
+      $s = subAgo($s, $fmt, $tm); // might have multiple variations
+    }
   }
   return $s;
 }
