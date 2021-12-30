@@ -1,4 +1,4 @@
-@REM %1 is start, publish, or finish
-git flow feature %1 %2
+@REM %2 is start, publish, or finish
+git flow feature %2 %1
 
-IF %1=="finish" git push origin HEAD
+IF "%2"=="finish" git push

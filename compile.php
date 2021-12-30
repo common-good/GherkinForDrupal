@@ -29,7 +29,7 @@ $gherkinPath = dirname($compilerPath);
 
 if (!$path or !$features = findFiles("$path/features", '/\.feature$/', FALSE)) error('No feature files found.');
 $ext = strtolower($lang);
-if (!$stepsHeader = file_get_contents("$gherkinPath/steps-header.$ext")) error("Missing steps header file for $lang.");
+if (!$stepsHeader = str_replace("\r", '', file_get_contents("$gherkinPath/steps-header.$ext"))) error("Missing steps header file for $lang.");
 if (!file_exists($testDir = "$path/test")) mkdir($testDir);
 if (!$testTemplate = file_get_contents("$gherkinPath/test-template.$ext")) error("Missing test template file for $lang.");
 
@@ -38,7 +38,7 @@ $Module = ucfirst($module);
 $moduleSubs = ['MODULE' => $module, 'MMODULE' => $Module]; // for % replacements in template files
 $stepsFilename = "$path/$module.steps" . (LANG == 'JS' ? '.js' : '');
 if (file_exists($stepsFilename)) {
-  $stepsText = file_get_contents($stepsFilename);
+  $stepsText = str_replace("\r", '', file_get_contents($stepsFilename));
   if (LANG == 'PHP') include $stepsFilename; // for defs, extra substitutions, and syntax errors may prevent corruption of steps
   if (LANG == 'JS') {
     if (substr($stepsText, -1, 1) != '}') error('Last character of steps file must be "}".');
@@ -62,7 +62,7 @@ $steps = getSteps($stepsText); // global
 doFeatures($steps, $features, $module, $testTemplate);
 doSteps($steps, $stepsText);
 if (LANG == 'JS') $stepsText .= '}';
-if (!file_put_contents($stepsFilename, $stepsText)) error("Cannot write stepsfile $stepsFilename.");
+if (!file_put_contents($stepsFilename, str_replace("\n", "\r\n", $stepsText))) error("Cannot write stepsfile $stepsFilename.");
 /**/ echo "\n\n<br>Updated $stepsFilename -- SUCCESS! Done. " . date('g:ia') . "\n";
 
 // END of program
