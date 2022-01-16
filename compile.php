@@ -62,7 +62,7 @@ $steps = getSteps($stepsText); // global
 doFeatures($steps, $features, $module, $testTemplate);
 doSteps($steps, $stepsText);
 if (LANG == 'JS') $stepsText .= '}';
-if (!file_put_contents($stepsFilename, str_replace("\n", "\r\n", $stepsText))) error("Cannot write stepsfile $stepsFilename.");
+if (!file_put_contents($stepsFilename, $stepsText)) error("Cannot write stepsfile $stepsFilename.");
 /**/ echo "\n\n<br>Updated $stepsFilename -- SUCCESS! Done. " . date('g:ia') . "\n";
 
 // END of program
