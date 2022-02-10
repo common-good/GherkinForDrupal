@@ -14,6 +14,7 @@ require_once R_ROOT . '/cg-db.inc';
  * @param string $feature: which specific feature within that module (defaults to all)
  * @param string $scene: which specific scenario within that feature (defaults to all)
  * @param int $variant: which specific variant within that scene (defaults to all)
+ * @param bool $compile: <recompile the tests before running them>
  */
 
 define('TESTING', 1); // use this to activate extra debugging statements (if (u\test()))
@@ -23,18 +24,18 @@ ini_set('max_execution_time', 0); // don't ever timeout when testing
 
 global $T; $T = new stdClass();
 
+$T = (object) just('module feature div scene variant compile', $args = $_SERVER['QUERY_STRING'], NULL);
 $T->okAll = $T->noAll = 0; // overall results counters
 $T->programPath = BASE_URL . '/' . strstr($_SERVER['REQUEST_URI'] . '?', '?', TRUE);
-$T->feature = $T->div = $T->scene = $T->variant = NULL; // allows for arbitrarily selective testing
-mb_parse_str($_SERVER['QUERY_STRING'], $args);
-foreach ($args as $k => $v) $T->$k = $v;
 $T->wholeModule = !nn($T->feature); // testing whole module? (suppress some test output)
-
 //if (@$T->scene) $T->variant = 0;
-if (nn($T->module)) $modules = explode(',', $T->module);
 
-foreach($modules as $module) doModule($module, $menu = !nn($args));
-if (!$menu and count($modules) > 1) report('OVERALL', $T->okAll, $T->noAll);
+if ($T->module) $modules = explode(',', $T->module); // one or more
+foreach($modules as $module) doModule($module, $menu = empty($args));
+
+if ($menu) {
+  insertMessage('<div class="compile"><input type="checkbox" name="compile" checked="checked" /> <label for="compile">Compile</label></div>');
+} elseif (count($modules) > 1) report('OVERALL', $T->okAll, $T->noAll);
 
 // END OF PROGRAM
 
@@ -52,14 +53,14 @@ function doModule($module, $menu) {
   $path = DRUPAL_ROOT . "/$module"; // path to module directory
   $compilerPath = preg_replace('~:[0-9]*/~', ':/', LOCAL_URL . "/vendor/gherkin/compile.php?lang=PHP&path=$path&timezone=$timezone&time=$tTime"); 
 
-  if (!$menu) {
+  if ($T->compile and !$menu) {
     if (isDEV) {
-      $arrContextOptions = [ "ssl" => [ 'verify_peer' => false, 'verify_peer_name' => false, 'allow_self_signed' => true, 'SNI_enabled' => true ] ];
-      $compilation = file_get_contents($compilerPath, false, stream_context_create($arrContextOptions)); // recompile tests first
+      $contextOptions = ['ssl' => ray('verify_peer verify_peer_name allow_self_signed SNI_enabled', FALSE, FALSE, TRUE, TRUE)];
+      $compilation = file_get_contents($compilerPath, FALSE, stream_context_create($contextOptions)); // recompile tests first
     } else {
       $compilation = file_get_contents($compilerPath); // recompile tests first
     }
-    if (strpos($compilation, 'ERROR ') !== FALSE or strpos($compilation, 'Fatal error') or strpos($compilation, 'Parse error') or strpos($compilation, 'SUCCESS!') === FALSE) {
+    if (strhas($compilation, 'ERROR ') or strhas($compilation, 'Fatal error') or strhas($compilation, 'Parse error') or !strhas($compilation, 'SUCCESS!')) {
 /**/  die("<b class=\"err\">Gherkin Compiler error</b> compiling module $module (fix, go back, retry):<br>$compilation");
       return report($moduleName, 0, "<a href=\"$compilerPath\">compile error</a>", $module, $T->div);
     }
@@ -202,7 +203,7 @@ EOF;
 function testLink($description, $module, $div = '', $feature = '', $scene = '', $variant = '') {
   global $T;
 //  $description = str_replace('_0', '', $description); // omit first variant from description
-  return "<a href=\"$T->programPath?module=$module&div=$div&feature=$feature&scene=$scene&variant=$variant&restart=1\">$description</a>";
+  return "<a href=\"$T->programPath?module=$module&div=$div&feature=$feature&scene=$scene&variant=$variant&restart=1&compile=1\">$description</a>";
 }
 
 function gotoError($title, $errorNum = 0) {
