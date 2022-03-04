@@ -51,7 +51,7 @@ function doModule($module, $menu) {
 
   $moduleName = strtoupper(basename($module));
   $path = DRUPAL_ROOT . "/$module"; // path to module directory
-  $compilerPath = preg_replace('~:[0-9]*/~', ':/', LOCAL_URL . "/vendor/gherkin/compile.php?lang=PHP&path=$path&timezone=$timezone&time=$tTime"); 
+  $compilerPath = preg_replace('~:[0-9]*/~', ':/', LOCAL_URL . "/gherkin/compile.php?lang=PHP&path=$path&timezone=$timezone&time=$tTime"); 
 
   if ($T->compile and !$menu) {
     if (isDEV) {
