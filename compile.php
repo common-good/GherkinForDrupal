@@ -493,6 +493,7 @@ function timeSubs($s) {
     'mdy' => '%m/%d/%y',
     'mdY' => '%m/%d/%Y',
     'md' => '%b %d',
+    'mY' => '%b %Y',
     'lastmy' => '%b%Y',
     'lastmd' => '%b %d',
     'lastmdy' => '%m/%d/%y',
