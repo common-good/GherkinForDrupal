@@ -558,7 +558,7 @@ function randomString($len = 0, $type = '?'){
   if ($type == '9') $chars = $digits;
   if ($type == 'A') $chars = $upper . $lower;
   
-  for($s = ''; $len > 0; $len--) $s .= $chars{mt_rand(0, strlen($chars)-1)};
+  for($s = ''; $len > 0; $len--) $s .= $chars[mt_rand(0, strlen($chars)-1)];
   $s = str_replace('=>', '->', $s); // don't let it look like a sub-argument
 //  $s0 = preg_replace('/[%@][A-Z]/e', 'strtolower("$0")', $s); // percent and ampersand occasionally look like substitution parameters
   $s = preg_replace_callback('/[%@][A-Z]/', function($m) {return strtolower($m[0]);}, $s); // percent and commercial "at" occasionally look like substitution parameters
