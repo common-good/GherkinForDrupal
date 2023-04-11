@@ -23,12 +23,17 @@ All the "And" lines can be multiple or omitted.
 Comment lines (beginning with '#') can appear anywhere.
 
 This Gherkin compiler makes several extensions to the standard Gherkin language:
- * A matrix argument is passed as an associative array only if the first row (showing the keys) ends with an asterisk. Otherwise it is passed as a plain array.
+ * A matrix argument is interpreted as an array of associative arrays only if the first row (showing the keys) has an asterisk (*) 
+   after the closing vertical bar. Otherwise it is passed as an array of plain arrays.
+   - with one asterisk, the keys are the first row
+   - with two asterisks, the keys are the first column (the array is sideways)
+   - either way, if the final asterisk is followed by a one (1), the first/only element of the array is returned
  * You can include a "Variants" section after the Feature header, consisting of a single matrix argument
    whose first line is a list of values to be replaced and each subsequent line is a list of replacements.
    The whole series of tests will be run as-is, then with each list of replacements.
  * You can include a special first scenario headed "Setup:" instead of "Scenario:" that will be run
    at the start of each scenario to set things up. Typically this will include "Given" (and "And" or "When") statements, but you can also include "Then"s (and "And"s) to test the setup.
+   (equivalent to Gherkin's "Background" section -- but we had it first :)
  * You can also use magic "%" arguments like the following:
      %_ - space (useful at start or end of a matrix argument)
      %| - a literal vertical bar (not a matrix argument separator)

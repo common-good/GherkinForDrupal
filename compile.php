@@ -398,6 +398,7 @@ function matrixRow($line) {
  * Any one or more spaces next to vertical bars are ignored.
  * If the first line has a single star after the final bar, it is treated as the field list of an associative array.
  * If the first line has a double star after the final bar, the field names are the first item on each following line.
+ * If either of those (* or **) markers is followed by a one ("1"), the associative array is returned, not an array of them.
  * 
  * @param array $lines: the remaining lines of the feature file
  *                      (RETURNED IMPLICIT) the remaining lines of the feature file, after handling the arg
@@ -405,26 +406,25 @@ function matrixRow($line) {
  * @return the matrix argument, printable (empty if this is not a matrix argument)
  */
 function matrixArg(&$lines, &$matrixLines) {
+  $assocV = $assocH = $single = FALSE;
   $res = $matrixLines = [];
-  while (substr(trim(@$lines[0]), 0, 1) == '|') {
+  while ($lines and substr(trim($lines[0]), 0, 1) == '|') {
     $matrixLines[] = $line = trim(array_shift($lines));
-    if (!$res and substr($line, -2, 2) == '**') {
-      $line = trim(substr($line, 0, strlen($line) - 2));
-      $assocV = TRUE;
-    } elseif (!$res and substr($line, -1, 1) == '*') {
-      $line = trim(substr($line, 0, strlen($line) - 1));
-      $assocH = TRUE;
+    if (!$res) { // first line
+      $single = lineEnds('1', $line);
+      $assocV = lineEnds('**', $line);
+      $assocH = lineEnds('*', $line);
     }
     $row = matrixRow($line);
     if (!$fldCount = count($row)) error('Bad multiline argument syntax: ' . $line);
     if (@$xfldCount and $fldCount != $xfldCount) error('Your field count is off in line: ' . $line);
     $xfldCount = $fldCount;
 //    if ($assocH and !$res) foreach ($row as $k) if 
-    $res[] = (@$assocH and $res) ? rayCombine($res[0], $row) : $row;
+    $res[] = ($assocH and $res) ? rayCombine($res[0], $row) : $row;
   }
-  if (@$assocH) unset($res[0]); // discard the horizontal array's key array (it's included in each row)
+  if ($assocH) unset($res[0]); // discard the horizontal array's key array (it's included in each row)
   if (!$res) return ''; else $res = array_values($res);
-  if (@$assocV) { // interpret vertical array of records
+  if ($assocV) { // interpret vertical array of records
     $rowCnt = count($res[0]);
     $new = [];
     foreach ($res as $one) {
@@ -433,7 +433,20 @@ function matrixArg(&$lines, &$matrixLines) {
     }
     $res = $new;
   }
+  if ($single) {
+    if (count($res) > 1) error('An object cannot be an array of objects, in multiline argument ending with line: ' . $line);
+    $res = $res[0];
+  }
+  
   return LANG == 'JS' ? jsonEncode($res) : var_export($res, TRUE);
+}
+
+function lineEnds($s, &$line) {
+  $len = strlen($s);
+  if (substr($line, -$len) == $s) {
+    $line = trim(substr($line, 0, strlen($line) - $len));
+    return TRUE;
+  } else return FALSE;
 }
 
 /**
