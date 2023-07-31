@@ -7,6 +7,8 @@ class %MODULE%FEATURE_NAME {
   var $feature;
   var $name;
   var $step;
+  var $state;
+  var $func;
 
   public function setUp($sceneName, $variant = '') {
     global $sceneTest; $sceneTest = $this;
