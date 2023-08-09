@@ -476,7 +476,7 @@ function standardSubs() {
 /**
  * Return the date, formatted as desired.
  * @param string $s: the string containing replaceable time/date variables
- * @param string $fmt: what strftime format to use (none if empty)
+ * @param string $fmt: what fmtDt format to use (none if empty)
  * @param int $time: base *nix time (defaults to now)
  */ 
 function subAgo($s, $fmt = '', $time = NOW) {
@@ -487,7 +487,7 @@ function subAgo($s, $fmt = '', $time = NOW) {
   $period = $periods[$p];
   $time0 = $time;
   $time = strtotime("$n $period", $time);
-  $when = $fmt ? strftime($fmt, $time) : $time;
+  $when = $fmt ? fmtDt($time, $fmt) : $time;
 ///  if ($fmt == '%Y%m%d') print_r(compact(explode(' ', 's fmt time all a mod n p m period time0 when')));
   return str_replace($all, $when, $s);
 }
@@ -501,19 +501,19 @@ function subAgo($s, $fmt = '', $time = NOW) {
  */
 function timeSubs($s) {
   $fmts = [
-    'ymd' => '%Y-%m-%d',
-    'dmy' => '%d%b%Y',
-    'dm' => '%d-%b',
-    'mdy' => '%m/%d/%y',
-    'mdY' => '%m/%d/%Y',
-    'md' => '%b %d',
-    'mY' => '%b %Y',
-    'lastmy' => '%b%Y',
-    'lastmd' => '%b %d',
-    'lastmdy' => '%m/%d/%y',
+    'ymd' => 'yyyy-MM-dd',
+    'dmy' => 'ddMMMyyyy',
+    'dm' => 'dd-MMM',
+    'mdy' => 'MM/dd/yy',
+    'mdY' => 'MM/dd/yyyy',
+    'md' => 'MMM dd',
+    'mY' => 'MMM yyyy',
+    'lastmy' => 'MMMyyyy',
+    'lastmd' => 'MMM dd',
+    'lastmdy' => 'MM/dd/yy',
     'lastm' => '',
     'thism' => '',
-    'todayn' => '%Y%m%d',
+    'todayn' => 'yyyyMMdd',
     'today' => '', // deprecated (use now)
     'yesterday' => '',
     'tomorrow' => '',
@@ -640,7 +640,7 @@ function squeeze($string, $char) {
 }
 
 function jsonEncode($s) {return json_encode($s) ?: json_encode(purify($s));} // , JSON_UNESCAPED_SLASHES
-function fmtDate($time = NOW, $numeric = FALSE) {return strftime($numeric ? '%m/%d/%Y' : '%d-%b-%Y', $time);}
+function fmtDate($time = NOW, $numeric = FALSE) {return fmtDt($time, $numeric ? 'MM/dd/yyyy' : 'dd-MM-yyyy');}
 
 function purify($s) {
   if (is_array($s)) {
@@ -722,4 +722,14 @@ function rayCombine($a, $b) {
   return array_combine($a, $b);
 }
 
-function monthDay1($time = NOW) {return strtotime(strftime('1%b%Y', $time));}
+function monthDay1($time = NOW) {return strtotime(fmtDt($time, '1MMMyyyy'));}
+
+/**
+ * Return a formatted date or date/time.
+ * See format options here: http://framework.zend.com/manual/1.12/en/zend.date.constants.html#zend.date.constants.selfdefinedformats
+ */
+function fmtDt($dt = NOW, $fmt = DATE_FMT) {
+  global $dtFormatter; if (!$dtFormatter) $dtFormatter = new IntlDateFormatter('en_US', IntlDateFormatter::LONG, IntlDateFormatter::NONE);
+  datefmt_set_pattern($dtFormatter, $fmt ?: DATE_FMT);
+  return strtr($dtFormatter->format($dt), ['AM'=>'am', 'PM'=>'pm']);
+}
