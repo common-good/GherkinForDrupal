@@ -503,6 +503,7 @@ function timeSubs($s) {
   $fmts = [
     'ymd' => 'yyyy-MM-dd',
     'dmy' => 'ddMMMyyyy',
+    'dmqy' => "ddMMM''yy",
     'dm' => 'dd-MMM',
     'mdy' => 'MM/dd/yy',
     'mdY' => 'MM/dd/yyyy',
