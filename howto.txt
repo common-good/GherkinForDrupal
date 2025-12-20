@@ -25,9 +25,10 @@ Comment lines (beginning with '#') can appear anywhere.
 This Gherkin compiler makes several extensions to the standard Gherkin language:
  * A matrix argument is interpreted as an array of associative arrays only if the first row (showing the keys) has an asterisk (*) 
    after the closing vertical bar. Otherwise it is passed as an array of plain arrays.
-   - with one asterisk, the keys are the first row
-   - with two asterisks, the keys are the first column (the array is sideways)
+   - with one asterisk (*), the keys are the first row
+   - with two asterisks (**), the keys are the first column (the array is sideways, pivoting around the upper left corner)
    - either way, if the final asterisk is followed by a one (1), the first/only element of the array is returned
+   - with two slashes (//), the array is sideways with no keys
  * You can include a "Variants" section after the Feature header, consisting of a single matrix argument
    whose first line is a list of values to be replaced and each subsequent line is a list of replacements.
    The whole series of tests will be run as-is, then with each list of replacements.

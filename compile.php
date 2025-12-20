@@ -413,6 +413,7 @@ function matrixArg(&$lines, &$matrixLines) {
     if (!$res) { // first line
       $single = lineEnds('1', $line);
       $assocV = lineEnds('**', $line);
+      $flatV = lineEnds('//', $line);
       $assocH = lineEnds('*', $line);
     }
     $row = matrixRow($line);
@@ -424,15 +425,17 @@ function matrixArg(&$lines, &$matrixLines) {
   }
   if ($assocH) unset($res[0]); // discard the horizontal array's key array (it's included in each row)
   if (!$res) return ''; else $res = array_values($res);
-  if ($assocV) { // interpret vertical array of records
+
+  if ($assocV or $flatV) { // interpret vertical array of records
     $rowCnt = count($res[0]);
     $new = [];
-    foreach ($res as $one) {
-      $k = $one[0];
-      for ($i = 1; $i < $rowCnt; $i++) $new[$i - 1][$k] = $one[$i];
+    foreach ($res as $j => $one) {
+      [$k, $i0, $offset] = $assocV ? [$one[0], 1, 1] : [$j, 0, 0];
+      for ($i = $i0; $i < $rowCnt; $i++) $new[$i - $offset][$k] = $one[$i];
     }
     $res = $new;
   }
+
   if ($single) {
     if (count($res) > 1) error('An object cannot be an array of objects, in multiline argument ending with line: ' . $line);
     $res = $res[0];
