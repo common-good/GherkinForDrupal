@@ -45,7 +45,7 @@ if ($menu) {
  * @param bool $menu: show just the menu
  */
 function doModule($module, $menu) {
-  global $T, $tTime; $tTime = time();
+  global $T, $tTime; $tTime = $T->t0 = time();
   $T->fails = $T->ok = $T->no = 0; // results counters
   $timezone = date_default_timezone_get();
 
@@ -130,6 +130,7 @@ function doTest($module, $feature) {
     // Display results are intermixed w debugging output, if any (so don't collect results before displaying)
 
     $xfails = nn($T->fails);
+    $GLOBALS['tTime'] = $T->t0; // the compiled dates assume this clock, so undo any change by an earlier scenario
     $t->$one(); // run one test
     $link = testLink($testName = substr($scene, 4), $module, '', $feature, $scene, $variant); // drop "test" from description
     $retryLink = ' ' . str_replace("$testName<", 'Retry1<', $link) . ' ';
